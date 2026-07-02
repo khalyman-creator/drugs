@@ -1,0 +1,32 @@
+{
+  "name": "local-shop",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "predev": "node scripts/free-port.js 3000",
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start",
+    "seed-reviews": "tsx scripts/seed-reviews.ts",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "next": "^15.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.16.0",
+    "eslint-config-next": "^15.1.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.16",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

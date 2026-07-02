@@ -1,0 +1,6 @@
+node_modules
+.next
+data/store.json
+data/reviews.json
+.env*.local
+*.log
