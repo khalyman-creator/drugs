@@ -1,10 +1,10 @@
 import { CartProvider } from "@/components/CartProvider";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { getSiteSettings } from "@/lib/db";
+import { getSiteSettings } from "@/lib/db/supabase-settings";
 
-export default function SiteLayout({ children }: { children: React.ReactNode }) {
-  const settings = getSiteSettings();
+export default async function SiteLayout({ children }: { children: React.ReactNode }) {
+  const settings = await getSiteSettings();
 
   return (
     <CartProvider>

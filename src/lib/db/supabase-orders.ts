@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { formatOrderReference } from "@/lib/email/order-ref";
 import type { CustomerRecord } from "./supabase-customers";
 
 export type OrderStatus =
@@ -148,6 +149,42 @@ export async function finalizeOrderPaid(id: string): Promise<OrderRecord | null>
 
   if (error) throw error;
   return (data as OrderRecord | null) ?? null;
+}
+
+export type AdminOrderSummary = {
+  id: string;
+  order_number: string;
+  customer_name: string;
+  customer_email: string;
+  total: number;
+  status: OrderStatus;
+  created_at: string;
+};
+
+export async function getAllOrdersForAdmin(): Promise<AdminOrderSummary[]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("orders")
+    .select("id, total, status, created_at, customer:customers(full_name, email)")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+
+  return ((data ?? []) as unknown as Array<{
+    id: string;
+    total: number;
+    status: OrderStatus;
+    created_at: string;
+    customer: { full_name: string; email: string } | null;
+  }>).map((o) => ({
+    id: o.id,
+    order_number: formatOrderReference(o.id),
+    customer_name: o.customer?.full_name ?? "Unknown",
+    customer_email: o.customer?.email ?? "",
+    total: Number(o.total),
+    status: o.status,
+    created_at: o.created_at,
+  }));
 }
 
 export async function failOrderIfUnpaid(id: string): Promise<OrderRecord | null> {

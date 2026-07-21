@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProductBySlug, getAllProducts, getSectionById } from "@/lib/db";
+import { getProductBySlug, getAllProducts } from "@/lib/db/supabase-products";
+import { getSectionById } from "@/lib/db/supabase-sections";
 import { ProductPageClient } from "@/components/ProductPageClient";
 import { ProductCard } from "@/components/ProductCard";
 
@@ -12,11 +13,11 @@ export default async function ProductPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const product = await getProductBySlug(slug);
   if (!product) notFound();
 
-  const section = getSectionById(product.section_id);
-  const allProducts = getAllProducts();
+  const section = await getSectionById(product.section_id);
+  const allProducts = await getAllProducts();
   const related = allProducts.filter((p) => p.id !== product.id).slice(0, 4);
 
   return (

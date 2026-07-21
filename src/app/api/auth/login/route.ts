@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAdmin } from "@/lib/db";
+import { verifyAdmin } from "@/lib/db/supabase-admin-auth";
 import { getSessionCookieName, getSessionValue } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Username and password required" }, { status: 400 });
   }
 
-  if (!verifyAdmin(username, password)) {
+  if (!(await verifyAdmin(username, password))) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 

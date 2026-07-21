@@ -62,7 +62,7 @@ export async function POST(req: Request) {
 
     let lockedItems;
     try {
-      lockedItems = lockOrderItemsFromCatalog(rawItems);
+      lockedItems = await lockOrderItemsFromCatalog(rawItems);
     } catch (validationError) {
       return NextResponse.json(
         {

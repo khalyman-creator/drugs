@@ -6,7 +6,7 @@ import Link from "next/link";
 import type { Product, Section, SiteSettings } from "@/lib/types";
 
 type OrderRow = {
-  id: number;
+  id: string;
   order_number: string;
   customer_name: string;
   customer_email: string;
@@ -503,7 +503,7 @@ export function AdminDashboard({
                     <td className="p-4 capitalize">{o.status}</td>
                     <td className="p-4">
                       <Link
-                        href={`/order/${o.order_number}`}
+                        href={`/success?orderId=${o.id}`}
                         className="text-brand-600 hover:underline"
                       >
                         View
