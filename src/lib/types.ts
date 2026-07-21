@@ -1,7 +1,3 @@
-import type { Review } from "./review-types";
-
-export type { Review };
-
 export type Product = {
   id: number;
   name: string;
@@ -69,5 +65,3 @@ export type OrderItem = {
 export type SectionWithProducts = Section & {
   products: Product[];
 };
-
-import type { ReviewSummary } from "@/lib/review-types";

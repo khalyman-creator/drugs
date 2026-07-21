@@ -10,15 +10,16 @@ import {
   removeFromCart,
   updateCartQuantity,
   replaceCartWithItem,
+  normalizeCart,
 } from "@/lib/cart";
 
 type CartContextType = {
   cart: Cart;
   itemCount: number;
-  addItem: (item: Omit<CartItem, "quantity">, qty?: number) => void;
-  updateQty: (productId: number, quantity: number) => void;
-  removeItem: (productId: number) => void;
-  replaceCart: (item: Omit<CartItem, "quantity">, quantity?: number) => void;
+  addItem: (item: Omit<CartItem, "quantity"> & { quantity?: number }) => void;
+  updateQty: (lineKey: string, quantity: number) => void;
+  removeItem: (lineKey: string) => void;
+  replaceCart: (item: Omit<CartItem, "quantity"> & { quantity?: number }) => void;
   clearCart: () => void;
   hydrated: boolean;
 };
@@ -32,7 +33,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(CART_STORAGE_KEY);
-      if (stored) setCart(JSON.parse(stored));
+      if (stored) setCart(normalizeCart(JSON.parse(stored)));
     } catch {
       /* ignore */
     }
@@ -45,20 +46,20 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [cart, hydrated]);
 
-  const addItem = useCallback((item: Omit<CartItem, "quantity">, qty = 1) => {
-    setCart((prev) => addToCart(prev, item, qty));
+  const addItem = useCallback((item: Omit<CartItem, "quantity"> & { quantity?: number }) => {
+    setCart((prev) => addToCart(prev, item));
   }, []);
 
-  const updateQty = useCallback((productId: number, quantity: number) => {
-    setCart((prev) => updateCartQuantity(prev, productId, quantity));
+  const updateQty = useCallback((lineKey: string, quantity: number) => {
+    setCart((prev) => updateCartQuantity(prev, lineKey, quantity));
   }, []);
 
-  const removeItem = useCallback((productId: number) => {
-    setCart((prev) => removeFromCart(prev, productId));
+  const removeItem = useCallback((lineKey: string) => {
+    setCart((prev) => removeFromCart(prev, lineKey));
   }, []);
 
-  const replaceCart = useCallback((item: Omit<CartItem, "quantity">, quantity = 1) => {
-    setCart(replaceCartWithItem(item, quantity));
+  const replaceCart = useCallback((item: Omit<CartItem, "quantity"> & { quantity?: number }) => {
+    setCart(replaceCartWithItem(item));
   }, []);
 
   const clearCart = useCallback(() => {

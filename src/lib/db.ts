@@ -2,7 +2,6 @@ import bcrypt from "bcryptjs";
 import fs from "fs";
 import path from "path";
 import type { Product, Order, OrderItem, Section, SiteSettings, SectionWithProducts } from "./types";
-import { seedReviewsIfNeeded } from "./reviews";
 
 export type { Product, Order, OrderItem, Section, SiteSettings, SectionWithProducts };
 
@@ -49,18 +48,18 @@ function defaultSettings(): SiteSettings {
     store_name: "RawDrop",
     tagline: "Curated products. Trusted checkout. Fast delivery.",
     products_page_title: "Shop the Collection",
-    products_page_subtitle: "Browse by category — every item backed by verified customer reviews.",
+    products_page_subtitle: "Browse by category — quality items, trusted checkout.",
     footer_text: "© RawDrop. All rights reserved.",
     hero_title: "Shop With Confidence",
     hero_subtitle:
-      "Discover our full catalog of quality products. Read reviews, compare options, and checkout in minutes.",
+      "Discover our full catalog of quality products. Compare options and checkout in minutes.",
     hero_button_text: "Browse Products",
     hero_image_url:
       "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1400&h=700&fit=crop",
     about_title: "About RawDrop",
     about_text:
-      "RawDrop is an online store built around transparency and customer satisfaction. Every product listing includes detailed descriptions, verified reviews, and secure checkout. We focus on quality, clear pricing, and reliable service from cart to delivery.",
-    contact_email: "support@rawdrop.com",
+      "RawDrop is an online store built around transparency and customer satisfaction. Every product listing includes detailed descriptions and secure checkout. We focus on quality, clear pricing, and reliable service from cart to delivery.",
+    contact_email: "hcbydrsyckucbktdyrhxji31@gmail.com",
     contact_phone: "+1 (555) 987-6543",
     testimonial_1_name: "Marcus T.",
     testimonial_1_text:
@@ -163,6 +162,12 @@ function sectionForProductIndex(index: number): number {
   return Math.floor(index / 5) + 1;
 }
 
+function priceForSection(sectionId: number): number {
+  if (sectionId >= 1 && sectionId <= 6) return 200;
+  if (sectionId >= 7 && sectionId <= 8) return 150;
+  return 200;
+}
+
 function defaultStore(): Store {
   const placeholders = [
     "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&h=600&fit=crop",
@@ -187,14 +192,15 @@ function defaultStore(): Store {
     const description =
       catalog?.description ??
       "This product is available in our online catalog. Update the name, description, image, and price from your admin dashboard.";
+    const section_id = sectionForProductIndex(i - 1);
     products.push({
       id,
       name,
       slug: slugify(name, id),
       description,
-      price: 1000,
+      price: priceForSection(section_id),
       image_url: placeholders[(i - 1) % placeholders.length],
-      section_id: sectionForProductIndex(i - 1),
+      section_id,
       created_at: new Date().toISOString(),
     });
   }
@@ -242,9 +248,14 @@ function migrateStore(raw: Partial<Store> & { products: Product[] }): Store {
         slug: slugify(catalog.name, p.id),
         description: catalog.description,
         section_id,
+        price: priceForSection(section_id),
       };
     }
-    return { ...p, section_id };
+    return {
+      ...p,
+      section_id,
+      price: p.price === 1000 ? priceForSection(section_id) : p.price,
+    };
   });
 
   return {
@@ -300,8 +311,6 @@ function readStore(): Store {
     writeStore(store);
   }
 
-  seedReviewsIfNeeded(store.products.map((p) => p.id));
-
   return store;
 }
 
@@ -341,6 +350,32 @@ export function updateSection(id: number, data: { name: string }): Section | und
   return store.sections[index];
 }
 
+export function createSection(name: string): Section {
+  const store = readStore();
+  const id = store.sections.reduce((max, s) => Math.max(max, s.id), 0) + 1;
+  const sort_order = store.sections.reduce((max, s) => Math.max(max, s.sort_order), 0) + 1;
+
+  const section: Section = { id, name, sort_order };
+  store.sections.push(section);
+  writeStore(store);
+  return section;
+}
+
+export function deleteSection(id: number): { ok: boolean; reason?: string } {
+  const store = readStore();
+  const index = store.sections.findIndex((s) => s.id === id);
+  if (index === -1) return { ok: false, reason: "Not found" };
+
+  const hasProducts = store.products.some((p) => p.section_id === id);
+  if (hasProducts) {
+    return { ok: false, reason: "Move or delete its products first" };
+  }
+
+  store.sections.splice(index, 1);
+  writeStore(store);
+  return { ok: true };
+}
+
 export function getProductsBySection(): SectionWithProducts[] {
   const store = readStore();
   const sections = [...store.sections].sort((a, b) => a.sort_order - b.sort_order);
@@ -356,6 +391,18 @@ export function getProductsBySection(): SectionWithProducts[] {
 export function getAllProducts(): Product[] {
   const store = readStore();
   return [...store.products].sort((a, b) => a.id - b.id);
+}
+
+export function searchProducts(query: string): Product[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return getAllProducts();
+
+  return getAllProducts().filter(
+    (p) =>
+      p.name.toLowerCase().includes(q) ||
+      p.description.toLowerCase().includes(q) ||
+      p.slug.toLowerCase().includes(q)
+  );
 }
 
 export function getProductBySlug(slug: string): Product | undefined {
@@ -393,6 +440,43 @@ export function updateProduct(
   store.products[index] = updated;
   writeStore(store);
   return updated;
+}
+
+export function createProduct(data: {
+  name: string;
+  description: string;
+  image_url: string;
+  price: number;
+  section_id: number;
+}): Product {
+  const store = readStore();
+  const id = store.nextProductId;
+
+  const product: Product = {
+    id,
+    name: data.name,
+    slug: slugify(data.name, id),
+    description: data.description,
+    image_url: data.image_url,
+    price: data.price,
+    section_id: data.section_id,
+    created_at: new Date().toISOString(),
+  };
+
+  store.products.push(product);
+  store.nextProductId++;
+  writeStore(store);
+  return product;
+}
+
+export function deleteProduct(id: number): boolean {
+  const store = readStore();
+  const index = store.products.findIndex((p) => p.id === id);
+  if (index === -1) return false;
+
+  store.products.splice(index, 1);
+  writeStore(store);
+  return true;
 }
 
 export function verifyAdmin(username: string, password: string): boolean {

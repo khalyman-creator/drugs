@@ -10,7 +10,7 @@ export function Footer({ settings }: { settings: SiteSettings }) {
         <div className="mt-4 flex justify-center gap-6 text-sm text-gray-600">
           <Link href="/products" className="hover:text-brand-700">Shop</Link>
           <Link href="/cart" className="hover:text-brand-700">Cart</Link>
-          <span>{settings.contact_email}</span>
+          <Link href="/contact" className="hover:text-brand-700">Contact</Link>
         </div>
         <p className="mt-6 text-xs text-gray-400">{settings.footer_text}</p>
       </div>

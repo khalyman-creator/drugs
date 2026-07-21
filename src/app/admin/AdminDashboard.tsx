@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Product, Section, SiteSettings } from "@/lib/types";
-import { formatPrice } from "@/lib/format";
 
 type OrderRow = {
   id: number;
@@ -17,10 +16,10 @@ type OrderRow = {
   created_at: string;
 };
 
-type Tab = "site" | "sections" | "products" | "orders";
+type Tab = "site" | "sections" | "orders";
 
 export function AdminDashboard({
-  products: initialProducts,
+  products,
   sections: initialSections,
   settings: initialSettings,
   orders,
@@ -37,19 +36,11 @@ export function AdminDashboard({
 
   const [settings, setSettings] = useState(initialSettings);
   const [sections, setSections] = useState(initialSections);
-  const [products, setProducts] = useState(initialProducts);
-
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [productForm, setProductForm] = useState({
-    name: "",
-    description: "",
-    image_url: "",
-    price: 1000,
-    section_id: 1,
-  });
 
   const [editingSection, setEditingSection] = useState<Section | null>(null);
+  const [creatingSection, setCreatingSection] = useState(false);
   const [sectionName, setSectionName] = useState("");
+  const [sectionDeleteArmed, setSectionDeleteArmed] = useState(false);
 
   async function handleLogout() {
     await fetch("/api/auth/login", { method: "DELETE" });
@@ -76,16 +67,57 @@ export function AdminDashboard({
   }
 
   function startEditSection(section: Section) {
+    setCreatingSection(false);
     setEditingSection(section);
     setSectionName(section.name);
+    setSectionDeleteArmed(false);
     setMessage("");
+  }
+
+  function startNewSection() {
+    setEditingSection(null);
+    setCreatingSection(true);
+    setSectionName("");
+    setSectionDeleteArmed(false);
+    setMessage("");
+  }
+
+  function cancelSectionForm() {
+    setEditingSection(null);
+    setCreatingSection(false);
+    setSectionDeleteArmed(false);
   }
 
   async function saveSection(e: React.FormEvent) {
     e.preventDefault();
-    if (!editingSection) return;
     setSaving(true);
     setMessage("");
+
+    if (creatingSection) {
+      const res = await fetch("/api/sections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: sectionName }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setSections((prev) => [...prev, created]);
+        setCreatingSection(false);
+        setEditingSection(created);
+        setMessage("Section added!");
+        router.refresh();
+      } else {
+        setMessage("Failed to add section");
+      }
+      setSaving(false);
+      return;
+    }
+
+    if (!editingSection) {
+      setSaving(false);
+      return;
+    }
+
     const res = await fetch("/api/sections", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -94,7 +126,7 @@ export function AdminDashboard({
     if (res.ok) {
       const updated = await res.json();
       setSections((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-      setEditingSection(null);
+      setEditingSection(updated);
       setMessage("Section saved!");
       router.refresh();
     } else {
@@ -103,36 +135,36 @@ export function AdminDashboard({
     setSaving(false);
   }
 
-  function startEditProduct(product: Product) {
-    setEditingProduct(product);
-    setProductForm({
-      name: product.name,
-      description: product.description,
-      image_url: product.image_url,
-      price: product.price,
-      section_id: product.section_id,
-    });
-    setMessage("");
-  }
+  async function removeSection() {
+    if (!editingSection) return;
+    const count = products.filter((p) => p.section_id === editingSection.id).length;
+    if (count > 0) {
+      setMessage(`Can't delete "${editingSection.name}" — it still has ${count} product${count === 1 ? "" : "s"}. Move or delete them first.`);
+      return;
+    }
 
-  async function saveProduct(e: React.FormEvent) {
-    e.preventDefault();
-    if (!editingProduct) return;
+    if (!sectionDeleteArmed) {
+      setSectionDeleteArmed(true);
+      return;
+    }
+
     setSaving(true);
     setMessage("");
-    const res = await fetch(`/api/products/${editingProduct.slug}`, {
-      method: "PUT",
+    const res = await fetch("/api/sections", {
+      method: "DELETE",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(productForm),
+      body: JSON.stringify({ id: editingSection.id }),
     });
     if (res.ok) {
-      const updated = await res.json();
-      setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
-      setEditingProduct(null);
-      setMessage("Product saved!");
+      setSections((prev) => prev.filter((s) => s.id !== editingSection.id));
+      setEditingSection(null);
+      setSectionDeleteArmed(false);
+      setMessage("Section deleted.");
       router.refresh();
     } else {
-      setMessage("Failed to save product");
+      const data = await res.json().catch(() => ({}));
+      setMessage(data.error || "Failed to delete section");
+      setSectionDeleteArmed(false);
     }
     setSaving(false);
   }
@@ -140,7 +172,6 @@ export function AdminDashboard({
   const tabs: { id: Tab; label: string }[] = [
     { id: "site", label: "Site" },
     { id: "sections", label: `Sections (${sections.length})` },
-    { id: "products", label: `Products (${products.length})` },
     { id: "orders", label: `Orders (${orders.length})` },
   ];
 
@@ -173,6 +204,12 @@ export function AdminDashboard({
             {t.label}
           </button>
         ))}
+        <Link
+          href="/admin/products"
+          className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200"
+        >
+          Products ({products.length})
+        </Link>
       </div>
 
       {message && <p className="mb-4 text-sm text-green-600">{message}</p>}
@@ -256,7 +293,7 @@ export function AdminDashboard({
             <legend className="font-medium text-brand-800">Contact</legend>
             {(
               [
-                ["contact_email", "Email"],
+                ["contact_email", "Internal email (not shown on site)"],
                 ["contact_phone", "Phone"],
               ] as const
             ).map(([key, label]) => (
@@ -338,6 +375,15 @@ export function AdminDashboard({
       {tab === "sections" && (
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="rounded-2xl border bg-white">
+            <div className="border-b p-4">
+              <button
+                type="button"
+                onClick={startNewSection}
+                className="w-full rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
+              >
+                + Add New Section
+              </button>
+            </div>
             <ul className="divide-y">
               {sections.map((section) => {
                 const count = products.filter((p) => p.section_id === section.id).length;
@@ -362,184 +408,68 @@ export function AdminDashboard({
           </div>
 
           <div className="rounded-2xl border bg-white p-6">
-            {editingSection ? (
+            {editingSection || creatingSection ? (
               <form onSubmit={saveSection} className="space-y-4">
-                <h2 className="font-semibold">Edit Section</h2>
+                <h2 className="font-semibold">{creatingSection ? "Add New Section" : "Edit Section"}</h2>
                 <div>
                   <label className="mb-1 block text-sm font-medium">Section Name</label>
                   <input
                     value={sectionName}
                     onChange={(e) => setSectionName(e.target.value)}
                     className="w-full rounded-xl border px-4 py-2.5"
+                    placeholder="e.g. Seasonal Picks"
                     required
                   />
                 </div>
-                <p className="text-xs text-gray-400">
-                  {products.filter((p) => p.section_id === editingSection.id).length} products in
-                  this section
-                </p>
+                {!creatingSection && editingSection && (
+                  <p className="text-xs text-gray-400">
+                    {products.filter((p) => p.section_id === editingSection.id).length} products in
+                    this section
+                  </p>
+                )}
                 <div className="flex gap-3">
                   <button
                     type="submit"
                     disabled={saving}
                     className="flex-1 rounded-xl bg-brand-600 py-2.5 font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
                   >
-                    {saving ? "Saving..." : "Save"}
+                    {saving ? "Saving..." : creatingSection ? "Add Section" : "Save"}
                   </button>
                   <button
                     type="button"
-                    onClick={() => setEditingSection(null)}
+                    onClick={cancelSectionForm}
                     className="rounded-xl border px-4 py-2.5 text-gray-600 hover:bg-gray-50"
                   >
                     Cancel
                   </button>
-                </div>
-              </form>
-            ) : (
-              <div className="flex h-full items-center justify-center text-gray-400">
-                ← Pick a section to rename
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {tab === "products" && (
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="max-h-[70vh] overflow-y-auto rounded-2xl border bg-white">
-            {sections.map((section) => {
-              const sectionProducts = products.filter((p) => p.section_id === section.id);
-              if (sectionProducts.length === 0) return null;
-              return (
-                <div key={section.id}>
-                  <p className="sticky top-0 bg-gray-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    {section.name}
-                  </p>
-                  <ul className="divide-y">
-                    {sectionProducts.map((p) => (
-                      <li key={p.id}>
-                        <button
-                          onClick={() => startEditProduct(p)}
-                          className={`flex w-full items-center gap-3 p-4 text-left hover:bg-gray-50 ${
-                            editingProduct?.id === p.id ? "bg-brand-50" : ""
-                          }`}
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={p.image_url} alt="" className="h-12 w-12 rounded-lg object-cover" />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate font-medium">{p.name}</p>
-                            <p className="text-sm text-gray-500">{formatPrice(p.price)}</p>
-                          </div>
-                          <span className="text-xs text-brand-600">Edit</span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="rounded-2xl border bg-white p-6">
-            {editingProduct ? (
-              <form onSubmit={saveProduct} className="space-y-4">
-                <h2 className="font-semibold">Edit Product #{editingProduct.id}</h2>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium">Name</label>
-                  <input
-                    value={productForm.name}
-                    onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                    className="w-full rounded-xl border px-4 py-2.5"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium">Description</label>
-                  <textarea
-                    value={productForm.description}
-                    onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-                    rows={4}
-                    className="w-full rounded-xl border px-4 py-2.5"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium">Image URL</label>
-                  <input
-                    value={productForm.image_url}
-                    onChange={(e) => setProductForm({ ...productForm, image_url: e.target.value })}
-                    className="w-full rounded-xl border px-4 py-2.5"
-                    placeholder="https://..."
-                    required
-                  />
-                  {productForm.image_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={productForm.image_url}
-                      alt="Preview"
-                      className="mt-2 h-32 w-32 rounded-xl object-cover"
-                    />
+                  {!creatingSection && editingSection && (
+                    <button
+                      type="button"
+                      onClick={removeSection}
+                      disabled={saving}
+                      className={`rounded-xl border px-4 py-2.5 disabled:opacity-60 ${
+                        sectionDeleteArmed
+                          ? "border-red-600 bg-red-600 text-white hover:bg-red-700"
+                          : "border-red-200 text-red-600 hover:bg-red-50"
+                      }`}
+                    >
+                      {sectionDeleteArmed ? "Click again to confirm" : "Delete"}
+                    </button>
+                  )}
+                  {sectionDeleteArmed && (
+                    <button
+                      type="button"
+                      onClick={() => setSectionDeleteArmed(false)}
+                      className="rounded-xl border px-4 py-2.5 text-gray-600 hover:bg-gray-50"
+                    >
+                      Never mind
+                    </button>
                   )}
                 </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium">Price</label>
-                  <input
-                    type="number"
-                    value={productForm.price}
-                    onChange={(e) =>
-                      setProductForm({ ...productForm, price: Number(e.target.value) })
-                    }
-                    className="w-full rounded-xl border px-4 py-2.5"
-                    min={0}
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium">Section</label>
-                  <select
-                    value={productForm.section_id}
-                    onChange={(e) =>
-                      setProductForm({ ...productForm, section_id: Number(e.target.value) })
-                    }
-                    className="w-full rounded-xl border px-4 py-2.5"
-                  >
-                    {sections.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <p className="text-xs text-gray-400">
-                  Link: /product/{editingProduct.slug} (updates when you rename)
-                </p>
-
-                <div className="flex gap-3">
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="flex-1 rounded-xl bg-brand-600 py-2.5 font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
-                  >
-                    {saving ? "Saving..." : "Save"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingProduct(null)}
-                    className="rounded-xl border px-4 py-2.5 text-gray-600 hover:bg-gray-50"
-                  >
-                    Cancel
-                  </button>
-                </div>
               </form>
             ) : (
               <div className="flex h-full items-center justify-center text-gray-400">
-                ← Pick a product to edit
+                ← Pick a section to rename, or add a new one
               </div>
             )}
           </div>
