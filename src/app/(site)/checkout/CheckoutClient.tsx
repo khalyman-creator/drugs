@@ -155,9 +155,28 @@ export default function CheckoutClient() {
 
           <div className="rounded-xl border border-gray-200 bg-white p-5">
             <h2 className="font-semibold">Payment</h2>
-            <p className="mt-2 text-sm text-gray-600">
-              You will be redirected to NOWPayments to complete your crypto payment.
+            <p className="mt-1 text-sm text-gray-500">NOWPayments — crypto checkout</p>
+            <p className="mt-3 text-sm text-gray-600">
+              Click <span className="font-medium">Pay Now</span> to place your order and open the
+              secure NOWPayments payment page. Bitcoin and 300+ cryptocurrencies are accepted.
             </p>
+            <p className="mt-3 text-sm text-gray-600">New to crypto? Here&apos;s how to pay with a card:</p>
+            <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm text-gray-600">
+              <li>
+                Buy BTC (or another coin) with your debit or credit card on{" "}
+                <a
+                  href="https://changenow.io"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-brand-600 underline hover:text-brand-700"
+                >
+                  ChangeNOW
+                </a>
+                .
+              </li>
+              <li>Click Pay Now below to get your unique NOWPayments payment address.</li>
+              <li>Send your crypto to that address — you&apos;ll get your order confirmation once it arrives.</li>
+            </ol>
           </div>
 
           {checkoutReady === null && (
@@ -183,7 +202,7 @@ export default function CheckoutClient() {
             disabled={loading || belowMinimum || checkoutReady === false}
             className="btn-primary w-full disabled:opacity-60"
           >
-            {loading ? "Creating invoice..." : `Pay with Crypto · ${formatPrice(total)}`}
+            {loading ? "Creating invoice..." : `Pay Now · ${formatPrice(total)}`}
           </button>
           <Link href="/cart" className="block text-center text-sm text-gray-500 hover:underline">
             ← Back to cart
