@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getProductsBySection, getSiteSettings, searchProducts } from "@/lib/db";
+import { getSiteSettings } from "@/lib/db/supabase-settings";
+import { getProductsBySection, searchProducts } from "@/lib/db/supabase-products";
 import { ProductCard } from "@/components/ProductCard";
 
 export const dynamic = "force-dynamic";
@@ -11,9 +12,9 @@ export default async function ProductsPage({
 }) {
   const { q } = await searchParams;
   const query = q?.trim() ?? "";
-  const settings = getSiteSettings();
-  const sections = getProductsBySection();
-  const results = query ? searchProducts(query) : null;
+  const settings = await getSiteSettings();
+  const sections = await getProductsBySection();
+  const results = query ? await searchProducts(query) : null;
 
   return (
     <>

@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { isAdminLoggedIn } from "@/lib/auth";
-import { getAllProducts, getAllOrders, getAllSections, getSiteSettings } from "@/lib/db";
+import { getAllProducts } from "@/lib/db/supabase-products";
+import { getAllSections } from "@/lib/db/supabase-sections";
+import { getSiteSettings } from "@/lib/db/supabase-settings";
+import { getAllOrdersForAdmin } from "@/lib/db/supabase-orders";
 import { formatPrice } from "@/lib/format";
 import { AdminDashboard } from "./AdminDashboard";
 
@@ -11,10 +14,10 @@ export default async function AdminPage() {
     redirect("/admin/login");
   }
 
-  const products = getAllProducts();
-  const orders = getAllOrders();
-  const sections = getAllSections();
-  const settings = getSiteSettings();
+  const products = await getAllProducts();
+  const orders = await getAllOrdersForAdmin();
+  const sections = await getAllSections();
+  const settings = await getSiteSettings();
 
   return (
     <AdminDashboard

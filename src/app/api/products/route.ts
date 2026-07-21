@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllProducts, createProduct } from "@/lib/db";
+import { getAllProducts, createProduct } from "@/lib/db/supabase-products";
 import { isAdminLoggedIn } from "@/lib/auth";
 
 export async function GET() {
-  const products = getAllProducts();
+  const products = await getAllProducts();
   return NextResponse.json(products);
 }
 
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
-  const product = createProduct({
+  const product = await createProduct({
     name: body.name,
     description: body.description,
     image_url: body.image_url,

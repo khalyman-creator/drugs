@@ -22,10 +22,10 @@
     }
   },
   "vars": {
-    "NEXT_PUBLIC_SITE_URL": "https://drugs.khalyman-creator.workers.dev",
-    "NEXT_PUBLIC_SUPABASE_URL": "https://jtapjomhwtfmobleoyov.supabase.co",
+    "NEXT_PUBLIC_SITE_URL": "https://drugs.hcbydrsyckucbktdyrhxji31.workers.dev",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://vjxjhwzfcdwuwhgiinrk.supabase.co",
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_myCoMj84SDPKxIMIcQd1-Q_bEEj_3tr",
-    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0YXBqb21od3RmbW9ibGVveW92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1OTA5NzksImV4cCI6MjA5ODE2Njk3OX0.VK-k5LJ2goWj9ph9nDw3TaJvFS5eeNWaHqyeq-h7S3I",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqeGpod3pmY2R3dXdoZ2lpbnJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5OTMyOTQsImV4cCI6MjA5ODU2OTI5NH0.yS9AZt8SCaQqI27IyAjLmteSnVpP5xEuDN3cd5CLIqE",
     "ADMIN_EMAIL": "hcbydrsyckucbktdyrhxji31@gmail.com",
     "EMAIL_FROM": "onboarding@resend.dev"
   }

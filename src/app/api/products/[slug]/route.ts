@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProductBySlug, updateProduct, deleteProduct } from "@/lib/db";
+import { getProductBySlug, updateProduct, deleteProduct } from "@/lib/db/supabase-products";
 import { isAdminLoggedIn } from "@/lib/auth";
 
 export async function GET(
@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const product = await getProductBySlug(slug);
   if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(product);
 }
@@ -21,11 +21,11 @@ export async function PUT(
   }
 
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const product = await getProductBySlug(slug);
   if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const body = await req.json();
-  const updated = updateProduct(product.id, {
+  const updated = await updateProduct(product.id, {
     name: body.name ?? product.name,
     description: body.description ?? product.description,
     image_url: body.image_url ?? product.image_url,
@@ -45,9 +45,9 @@ export async function DELETE(
   }
 
   const { slug } = await params;
-  const product = getProductBySlug(slug);
+  const product = await getProductBySlug(slug);
   if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  deleteProduct(product.id);
+  await deleteProduct(product.id);
   return NextResponse.json({ ok: true });
 }

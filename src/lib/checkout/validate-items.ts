@@ -1,4 +1,5 @@
-import { getProductById, getSectionById } from "@/lib/db";
+import { getProductById } from "@/lib/db/supabase-products";
+import { getSectionById } from "@/lib/db/supabase-sections";
 import type { CreateOrderItemInput } from "@/lib/db/supabase-orders";
 import {
   formatVariantLineName,
@@ -63,10 +64,10 @@ export function parseRawCheckoutItems(raw: unknown): RawCheckoutItem[] | null {
   return items;
 }
 
-function resolveVariantPrice(
+async function resolveVariantPrice(
   sectionId: number,
   item: RawCheckoutItem
-): { variantLabel: string; unitPrice: number } {
+): Promise<{ variantLabel: string; unitPrice: number }> {
   const mode = getPricingMode(sectionId);
 
   if (mode === "gram") {
@@ -107,23 +108,26 @@ function resolveVariantPrice(
     return { variantLabel: resolved.variantLabel, unitPrice: resolved.price };
   }
 
+  const product = await getProductById(item.productId);
   return {
     variantLabel: item.variantLabel ?? `${item.quantity} unit(s)`,
-    unitPrice: getProductById(item.productId)!.price,
+    unitPrice: product!.price,
   };
 }
 
-export function lockOrderItemsFromCatalog(rawItems: RawCheckoutItem[]): CreateOrderItemInput[] {
+export async function lockOrderItemsFromCatalog(
+  rawItems: RawCheckoutItem[]
+): Promise<CreateOrderItemInput[]> {
   const locked: CreateOrderItemInput[] = [];
 
   for (const item of rawItems) {
-    const product = getProductById(item.productId);
+    const product = await getProductById(item.productId);
     if (!product) {
       throw new Error(`Product ${item.productId} is no longer available`);
     }
 
-    const section = getSectionById(product.section_id);
-    const { variantLabel, unitPrice } = resolveVariantPrice(product.section_id, item);
+    const section = await getSectionById(product.section_id);
+    const { variantLabel, unitPrice } = await resolveVariantPrice(product.section_id, item);
 
     locked.push({
       productId: product.id,

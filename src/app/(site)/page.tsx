@@ -1,4 +1,5 @@
-import { getSiteSettings, getAllProducts } from "@/lib/db";
+import { getSiteSettings } from "@/lib/db/supabase-settings";
+import { getAllProducts } from "@/lib/db/supabase-products";
 import { Hero } from "@/components/Hero";
 import { FeaturedProducts } from "@/components/FeaturedProducts";
 import { AboutSection } from "@/components/AboutSection";
@@ -6,9 +7,9 @@ import { Testimonials } from "@/components/Testimonials";
 
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
-  const settings = getSiteSettings();
-  const products = getAllProducts();
+export default async function HomePage() {
+  const settings = await getSiteSettings();
+  const products = await getAllProducts();
 
   return (
     <>

@@ -1,11 +1,11 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import { getSiteSettings } from "@/lib/db";
+import { getSiteSettings } from "@/lib/db/supabase-settings";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const settings = getSiteSettings();
+  const settings = await getSiteSettings();
   return {
     title: settings.store_name,
     description: settings.tagline,
