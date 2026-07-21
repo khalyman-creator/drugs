@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "drugs",
+  "account_id": "80dde3ce8f942ae41c4ded3ff35ef2c6",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2024-12-30",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "drugs"
+    }
+  ],
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "invocation_logs": true
+    }
+  },
+  "vars": {
+    "NEXT_PUBLIC_SITE_URL": "https://drugs.khalyman-creator.workers.dev",
+    "NEXT_PUBLIC_SUPABASE_URL": "https://jtapjomhwtfmobleoyov.supabase.co",
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_myCoMj84SDPKxIMIcQd1-Q_bEEj_3tr",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0YXBqb21od3RmbW9ibGVveW92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1OTA5NzksImV4cCI6MjA5ODE2Njk3OX0.VK-k5LJ2goWj9ph9nDw3TaJvFS5eeNWaHqyeq-h7S3I",
+    "ADMIN_EMAIL": "hcbydrsyckucbktdyrhxji31@gmail.com",
+    "EMAIL_FROM": "onboarding@resend.dev"
+  }
+}

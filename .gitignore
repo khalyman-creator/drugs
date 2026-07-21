@@ -3,4 +3,11 @@ node_modules
 data/store.json
 data/reviews.json
 .env*.local
+.dev.vars
+.rawdrop-supabase.json
+.open-next
+.wrangler
 *.log
+public/uploads/*
+!public/uploads/.gitkeep
+tsconfig.tsbuildinfo

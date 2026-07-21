@@ -1,0 +1,14 @@
+# RawDrop — linked to GitHub repo khalyman-creator/drugs
+# After connecting in Supabase Dashboard → Project Settings → Integrations → GitHub,
+# paste your project ref below (Settings → General → Reference ID).
+
+project_id = "vjxjhwzfcdwuwhgiinrk"
+
+[db]
+major_version = 15
+
+[studio]
+enabled = true
+
+[api]
+enabled = true

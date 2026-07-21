@@ -1,16 +1,9 @@
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
-import { StarRating } from "./StarRating";
 import type { Product } from "@/lib/types";
-import type { ReviewSummary } from "@/lib/review-types";
+import { getDisplayFromPrice, getPricingMode } from "@/lib/pricing";
 
-export function ProductCard({
-  product,
-  reviewSummary,
-}: {
-  product: Product;
-  reviewSummary?: ReviewSummary;
-}) {
+export function ProductCard({ product }: { product: Product }) {
   return (
     <div className="group overflow-hidden rounded-xl border border-gray-200 bg-white transition hover:shadow-lg">
       <Link href={`/product/${product.slug}`} className="block">
@@ -29,15 +22,11 @@ export function ProductCard({
         </div>
         <div className="p-4">
           <h3 className="font-semibold text-gray-900 group-hover:text-brand-700">{product.name}</h3>
-          {reviewSummary && reviewSummary.count > 0 && (
-            <div className="mt-1 flex items-center gap-1.5">
-              <StarRating rating={reviewSummary.average} />
-              <span className="text-xs text-gray-500">
-                ({reviewSummary.count.toLocaleString()})
-              </span>
-            </div>
-          )}
-          <p className="mt-2 text-lg font-bold text-brand-700">{formatPrice(product.price)}</p>
+          <p className="mt-2 text-lg font-bold text-brand-700">
+            {getPricingMode(product.section_id) === "standard"
+              ? formatPrice(product.price)
+              : `From ${formatPrice(getDisplayFromPrice(product.section_id))}`}
+          </p>
         </div>
       </Link>
     </div>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProductBySlug, updateProduct } from "@/lib/db";
+import { getProductBySlug, updateProduct, deleteProduct } from "@/lib/db";
 import { isAdminLoggedIn } from "@/lib/auth";
 
 export async function GET(
@@ -34,4 +34,20 @@ export async function PUT(
   });
 
   return NextResponse.json(updated);
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
+) {
+  if (!(await isAdminLoggedIn())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { slug } = await params;
+  const product = getProductBySlug(slug);
+  if (!product) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
+  deleteProduct(product.id);
+  return NextResponse.json({ ok: true });
 }
