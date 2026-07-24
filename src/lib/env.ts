@@ -41,7 +41,7 @@ export function getEmailFrom(): string {
 }
 
 export function getAdminEmail(): string {
-  return optional("ADMIN_EMAIL", "hcbydrsyckucbktdyrhxji31@gmail.com");
+  return optional("ADMIN_EMAIL", "support@silkfreedom.com");
 }
 
 export function getNowPaymentsApiKey(): string | null {

@@ -65,7 +65,7 @@ Set-Content $wranglerPath $content -NoNewline
 Write-Host ""
 Write-Host "Plain vars (also set these in dashboard if not redeploying):"
 Write-Host "  NEXT_PUBLIC_SITE_URL = $siteUrl"
-Write-Host "  ADMIN_EMAIL = hcbydrsyckucbktdyrhxji31@gmail.com"
+Write-Host "  ADMIN_EMAIL = support@silkfreedom.com"
 Write-Host "  EMAIL_FROM = onboarding@resend.dev"
 if ($env:SUPABASE_URL) { Write-Host "  NEXT_PUBLIC_SUPABASE_URL = $env:SUPABASE_URL" }
 if ($env:SUPABASE_ANON) { Write-Host "  NEXT_PUBLIC_SUPABASE_ANON_KEY = $env:SUPABASE_ANON" }

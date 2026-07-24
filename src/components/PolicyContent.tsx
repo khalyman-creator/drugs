@@ -3,15 +3,29 @@ type Block =
   | { type: "paragraph"; text: string };
 
 function parsePolicyText(raw: string): Block[] {
-  return raw
-    .split(/\n\s*\n/)
-    .map((chunk) => chunk.trim())
-    .filter(Boolean)
-    .map((chunk) =>
-      chunk.startsWith("## ")
-        ? { type: "heading" as const, text: chunk.slice(3).trim() }
-        : { type: "paragraph" as const, text: chunk }
-    );
+  const blocks: Block[] = [];
+  let paragraphLines: string[] = [];
+
+  function flushParagraph() {
+    const text = paragraphLines.join(" ").trim();
+    if (text) blocks.push({ type: "paragraph", text });
+    paragraphLines = [];
+  }
+
+  for (const line of raw.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("## ")) {
+      flushParagraph();
+      blocks.push({ type: "heading", text: trimmed.slice(3).trim() });
+    } else if (trimmed === "") {
+      flushParagraph();
+    } else {
+      paragraphLines.push(trimmed);
+    }
+  }
+  flushParagraph();
+
+  return blocks;
 }
 
 export function PolicyContent({ text }: { text: string }) {
@@ -21,7 +35,7 @@ export function PolicyContent({ text }: { text: string }) {
     <div className="mt-8 space-y-4 text-gray-700">
       {blocks.map((block, i) =>
         block.type === "heading" ? (
-          <h2 key={i} className="font-display pt-4 text-lg uppercase tracking-wide text-gray-900 first:pt-0">
+          <h2 key={i} className="font-display pt-4 text-lg font-bold text-gray-900 first:pt-0">
             {block.text}
           </h2>
         ) : (

@@ -57,6 +57,8 @@ export type SiteSettings = {
   testimonials_subtitle: string;
   shipping_policy_text: string;
   refund_policy_text: string;
+  privacy_policy_text: string;
+  terms_of_service_text: string;
   gram_28g_label: string;
   gram_28g_price: number;
   gram_qtr_label: string;

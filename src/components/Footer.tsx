@@ -14,6 +14,8 @@ export function Footer({ settings }: { settings: SiteSettings }) {
           <Link href="/contact" className="hover:text-brand-700">Contact</Link>
           <Link href="/shipping" className="hover:text-brand-700">Shipping</Link>
           <Link href="/refunds" className="hover:text-brand-700">Refunds</Link>
+          <Link href="/privacy" className="hover:text-brand-700">Privacy</Link>
+          <Link href="/terms" className="hover:text-brand-700">Terms</Link>
         </div>
         <p className="mt-6 text-xs text-gray-400">{settings.footer_text}</p>
       </div>

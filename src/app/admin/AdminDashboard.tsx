@@ -580,6 +580,8 @@ export function AdminDashboard({
                 {
                   shipping_policy_text: settings.shipping_policy_text,
                   refund_policy_text: settings.refund_policy_text,
+                  privacy_policy_text: settings.privacy_policy_text,
+                  terms_of_service_text: settings.terms_of_service_text,
                 },
                 e
               )
@@ -596,6 +598,8 @@ export function AdminDashboard({
               [
                 ["shipping_policy_text", "Shipping Policy (/shipping)"],
                 ["refund_policy_text", "Refund Policy (/refunds)"],
+                ["privacy_policy_text", "Privacy Policy (/privacy)"],
+                ["terms_of_service_text", "Terms of Service (/terms)"],
               ] as const
             ).map(([key, label]) => (
               <div key={key}>

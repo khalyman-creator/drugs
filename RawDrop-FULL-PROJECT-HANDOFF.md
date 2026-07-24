@@ -356,7 +356,7 @@ Minimum order: **$20** (enforced client + server)
 
 - Route: `/contact`
 - API: `POST /api/contact`
-- Sends email via Resend to `ADMIN_EMAIL` (hcbydrsyckucbktdyrhxji31@gmail.com)
+- Sends email via Resend to `ADMIN_EMAIL` (support@silkfreedom.com)
 - Email is **not shown** on the public site (footer link only)
 - Requires `RESEND_API_KEY` secret to work in production
 
@@ -408,7 +408,7 @@ Storage key: `local-shop-cart` in localStorage
 3. NOWPayments + Supabase on Cloudflare Worker
 4. Worker name: **`drugs`** (NOT rawdrop — rawdrop was earlier name)
 5. Do NOT touch other live workers or shared Supabase DBs
-6. Site email: hcbydrsyckucbktdyrhxji31@gmail.com
+6. Site email: support@silkfreedom.com
 7. Contact page without exposing email publicly
 8. Supabase project: vjxjhwzfcdwuwhgiinrk
 9. **Latest request:** Section-based quantity/pricing:
@@ -521,7 +521,7 @@ Storage key: `local-shop-cart` in localStorage
 
 ## 22. Contact / Account Info
 
-- **Admin email:** hcbydrsyckucbktdyrhxji31@gmail.com
+- **Admin email:** support@silkfreedom.com
 - **GitHub:** khalyman-creator / drugs repo
 - **Cloudflare account ID:** 80dde3ce8f942ae41c4ded3ff35ef2c6
 - **Worker name:** drugs
