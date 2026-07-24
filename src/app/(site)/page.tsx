@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getSiteSettings } from "@/lib/db/supabase-settings";
 import { getAllProducts } from "@/lib/db/supabase-products";
 import { getPricingOptionsForProducts } from "@/lib/db/supabase-pricing-options";
+import { getApprovedReviews } from "@/lib/db/supabase-reviews";
 import { Hero } from "@/components/Hero";
 import { FeaturedProducts } from "@/components/FeaturedProducts";
 import { AboutSection } from "@/components/AboutSection";
@@ -18,6 +19,7 @@ export default async function HomePage() {
   const settings = await getSiteSettings();
   const products = await getAllProducts();
   const pricingOptionsByProduct = await getPricingOptionsForProducts(products.map((p) => p.id));
+  const reviews = await getApprovedReviews();
   const siteUrl = getSiteUrl();
 
   const websiteJsonLd = {
@@ -47,7 +49,7 @@ export default async function HomePage() {
         pricingOptionsByProduct={pricingOptionsByProduct}
       />
       <AboutSection settings={settings} />
-      <Testimonials settings={settings} />
+      <Testimonials settings={settings} reviews={reviews} />
     </>
   );
 }

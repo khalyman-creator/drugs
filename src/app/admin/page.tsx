@@ -4,6 +4,7 @@ import { getAllProducts } from "@/lib/db/supabase-products";
 import { getAllSections } from "@/lib/db/supabase-sections";
 import { getSiteSettings } from "@/lib/db/supabase-settings";
 import { getAllOrdersForAdmin } from "@/lib/db/supabase-orders";
+import { getAllReviewsForAdmin } from "@/lib/db/supabase-reviews";
 import { formatPrice } from "@/lib/format";
 import { AdminDashboard } from "./AdminDashboard";
 
@@ -18,6 +19,7 @@ export default async function AdminPage() {
   const orders = await getAllOrdersForAdmin();
   const sections = await getAllSections({ includeInactive: true });
   const settings = await getSiteSettings();
+  const reviews = await getAllReviewsForAdmin();
 
   return (
     <AdminDashboard
@@ -28,6 +30,7 @@ export default async function AdminPage() {
         ...o,
         totalFormatted: formatPrice(o.total),
       }))}
+      reviews={reviews}
     />
   );
 }

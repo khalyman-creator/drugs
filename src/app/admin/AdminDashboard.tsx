@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { Product, Section, SiteSettings } from "@/lib/types";
+import type { Product, Review, Section, SiteSettings } from "@/lib/types";
 
 type OrderRow = {
   id: string;
@@ -16,18 +16,20 @@ type OrderRow = {
   created_at: string;
 };
 
-type Tab = "site" | "sections" | "orders";
+type Tab = "site" | "sections" | "orders" | "reviews";
 
 export function AdminDashboard({
   products,
   sections: initialSections,
   settings: initialSettings,
   orders,
+  reviews: initialReviews,
 }: {
   products: Product[];
   sections: Section[];
   settings: SiteSettings;
   orders: OrderRow[];
+  reviews: Review[];
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("site");
@@ -42,6 +44,9 @@ export function AdminDashboard({
   const [heroUploading, setHeroUploading] = useState(false);
   const [heroUploadError, setHeroUploadError] = useState("");
 
+  const [reviews, setReviews] = useState(initialReviews);
+  const [reviewActionId, setReviewActionId] = useState<number | null>(null);
+
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [creatingSection, setCreatingSection] = useState(false);
   const [sectionName, setSectionName] = useState("");
@@ -53,6 +58,29 @@ export function AdminDashboard({
     await fetch("/api/auth/login", { method: "DELETE" });
     router.push("/admin/login");
     router.refresh();
+  }
+
+  async function handleApproveReview(id: number, approved: boolean) {
+    setReviewActionId(id);
+    const res = await fetch(`/api/reviews/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_approved: approved }),
+    });
+    if (res.ok) {
+      const updated = await res.json();
+      setReviews((prev) => prev.map((r) => (r.id === id ? updated : r)));
+    }
+    setReviewActionId(null);
+  }
+
+  async function handleDeleteReview(id: number) {
+    setReviewActionId(id);
+    const res = await fetch(`/api/reviews/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setReviews((prev) => prev.filter((r) => r.id !== id));
+    }
+    setReviewActionId(null);
   }
 
   async function handleHeroImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -246,10 +274,16 @@ export function AdminDashboard({
     setSaving(false);
   }
 
+  const pendingReviewCount = reviews.filter((r) => !r.is_approved).length;
+
   const tabs: { id: Tab; label: string }[] = [
     { id: "site", label: "Site" },
     { id: "sections", label: `Sections (${sections.length})` },
     { id: "orders", label: `Orders (${orders.length})` },
+    {
+      id: "reviews",
+      label: pendingReviewCount > 0 ? `Reviews (${pendingReviewCount} pending)` : "Reviews",
+    },
   ];
 
   return (
@@ -500,12 +534,6 @@ export function AdminDashboard({
                 {
                   testimonials_title: settings.testimonials_title,
                   testimonials_subtitle: settings.testimonials_subtitle,
-                  testimonial_1_name: settings.testimonial_1_name,
-                  testimonial_1_text: settings.testimonial_1_text,
-                  testimonial_2_name: settings.testimonial_2_name,
-                  testimonial_2_text: settings.testimonial_2_text,
-                  testimonial_3_name: settings.testimonial_3_name,
-                  testimonial_3_text: settings.testimonial_3_text,
                 },
                 e
               )
@@ -529,28 +557,9 @@ export function AdminDashboard({
                 />
               </div>
             ))}
-            {[1, 2, 3].map((n) => (
-              <div key={n} className="rounded-xl border border-gray-100 bg-gray-50 p-4 space-y-3">
-                <p className="text-sm font-medium">Testimonial {n}</p>
-                <input
-                  value={String(settings[`testimonial_${n}_name` as keyof SiteSettings] ?? "")}
-                  onChange={(e) =>
-                    setSettings({ ...settings, [`testimonial_${n}_name`]: e.target.value })
-                  }
-                  placeholder="Customer name"
-                  className="w-full rounded-xl border px-4 py-2.5"
-                />
-                <textarea
-                  value={String(settings[`testimonial_${n}_text` as keyof SiteSettings] ?? "")}
-                  onChange={(e) =>
-                    setSettings({ ...settings, [`testimonial_${n}_text`]: e.target.value })
-                  }
-                  placeholder="Review text"
-                  rows={2}
-                  className="w-full rounded-xl border px-4 py-2.5"
-                />
-              </div>
-            ))}
+            <p className="text-xs text-gray-400">
+              Individual reviews are now managed from the Reviews tab, not here.
+            </p>
             </fieldset>
             {saveRow("testimonials")}
           </form>
@@ -973,6 +982,71 @@ export function AdminDashboard({
                 ))}
               </tbody>
             </table>
+          )}
+        </div>
+      )}
+
+      {tab === "reviews" && (
+        <div className="space-y-3">
+          {reviews.length === 0 ? (
+            <p className="rounded-2xl border bg-white p-8 text-center text-gray-400">
+              No reviews yet
+            </p>
+          ) : (
+            reviews.map((r) => (
+              <div
+                key={r.id}
+                className={`rounded-2xl border bg-white p-4 ${
+                  r.is_approved ? "" : "border-amber-300 bg-amber-50"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {r.name}{" "}
+                      {!r.is_approved && (
+                        <span className="ml-2 rounded-full bg-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                          Pending
+                        </span>
+                      )}
+                    </p>
+                    <p className="mt-1 whitespace-pre-line text-sm text-gray-600">{r.comment}</p>
+                    <p className="mt-2 text-xs text-gray-400">
+                      {new Date(r.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    {r.is_approved ? (
+                      <button
+                        type="button"
+                        disabled={reviewActionId === r.id}
+                        onClick={() => handleApproveReview(r.id, false)}
+                        className="rounded-lg border px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-60"
+                      >
+                        Unpublish
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={reviewActionId === r.id}
+                        onClick={() => handleApproveReview(r.id, true)}
+                        className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+                      >
+                        Approve
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={reviewActionId === r.id}
+                      onClick={() => handleDeleteReview(r.id)}
+                      className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
           )}
         </div>
       )}

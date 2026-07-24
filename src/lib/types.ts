@@ -103,3 +103,11 @@ export type OrderItem = {
 export type SectionWithProducts = Section & {
   products: Product[];
 };
+
+export type Review = {
+  id: number;
+  name: string;
+  comment: string;
+  is_approved: boolean;
+  created_at: string;
+};
