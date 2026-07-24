@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "drugs",
-  "account_id": "3b52f2f453ec19f18552f1da7c91e791",
+  "account_id": "80dde3ce8f942ae41c4ded3ff35ef2c6",
   "main": ".open-next/worker.js",
   "compatibility_date": "2024-12-30",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
