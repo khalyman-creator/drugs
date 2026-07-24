@@ -7,6 +7,11 @@ import { useCart } from "@/components/CartProvider";
 import { formatPrice } from "@/lib/format";
 
 const MIN_CHECKOUT = 20;
+const SHIPPING_OPTIONS = {
+  standard: { label: "Standard Shipping", price: 10 },
+  express: { label: "Express Shipping", price: 20 },
+} as const;
+type ShippingMethod = keyof typeof SHIPPING_OPTIONS;
 
 export default function CheckoutClient() {
   const { cart, clearCart, hydrated } = useCart();
@@ -15,6 +20,7 @@ export default function CheckoutClient() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [checkoutReady, setCheckoutReady] = useState<boolean | null>(null);
+  const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("standard");
 
   const [form, setForm] = useState({
     name: "",
@@ -69,8 +75,10 @@ export default function CheckoutClient() {
     );
   }
 
-  const total = cart.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const belowMinimum = total < MIN_CHECKOUT;
+  const subtotal = cart.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const shippingCost = SHIPPING_OPTIONS[shippingMethod].price;
+  const total = subtotal + shippingCost;
+  const belowMinimum = subtotal < MIN_CHECKOUT;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -94,6 +102,7 @@ export default function CheckoutClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customer: form,
+          shipping: shippingCost,
           items: cart.items.map((i) => ({
             productId: i.product_id,
             quantity: i.quantity,
@@ -154,6 +163,37 @@ export default function CheckoutClient() {
           </div>
 
           <div className="rounded-xl border border-gray-200 bg-white p-5">
+            <h2 className="font-semibold">Shipping method</h2>
+            <div className="mt-4 space-y-3">
+              {(Object.keys(SHIPPING_OPTIONS) as ShippingMethod[]).map((method) => (
+                <label
+                  key={method}
+                  className={`flex cursor-pointer items-center justify-between rounded-lg border-2 px-4 py-3 transition ${
+                    shippingMethod === method
+                      ? "border-brand-600 bg-brand-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <span className="flex items-center gap-3">
+                    <input
+                      type="radio"
+                      name="shippingMethod"
+                      value={method}
+                      checked={shippingMethod === method}
+                      onChange={() => setShippingMethod(method)}
+                      className="h-4 w-4 accent-brand-600"
+                    />
+                    <span className="font-medium text-gray-900">{SHIPPING_OPTIONS[method].label}</span>
+                  </span>
+                  <span className="font-semibold text-gray-900">
+                    {formatPrice(SHIPPING_OPTIONS[method].price)}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-gray-200 bg-white p-5">
             <h2 className="font-semibold">Payment</h2>
             <p className="mt-1 text-sm text-gray-500">NOWPayments — crypto checkout</p>
             <p className="mt-3 text-sm text-gray-600">
@@ -191,7 +231,7 @@ export default function CheckoutClient() {
 
           {belowMinimum && (
             <p className="text-sm text-amber-700">
-              Add {formatPrice(MIN_CHECKOUT - total)} more to reach the minimum checkout amount.
+              Add {formatPrice(MIN_CHECKOUT - subtotal)} more to reach the minimum checkout amount.
             </p>
           )}
 
@@ -204,6 +244,36 @@ export default function CheckoutClient() {
           >
             {loading ? "Creating invoice..." : `Pay Now · ${formatPrice(total)}`}
           </button>
+
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-1 text-xs text-gray-500">
+            <span className="flex items-center gap-1.5">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-brand-600">
+                <path
+                  fillRule="evenodd"
+                  d="M10 1a4 4 0 0 0-4 4v2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-1V5a4 4 0 0 0-4-4Zm2 6V5a2 2 0 1 0-4 0v2h4Z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Secure checkout
+            </span>
+            <span className="flex items-center gap-1.5">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-brand-600">
+                <path
+                  fillRule="evenodd"
+                  d="M10 1.75c-2.4 1.44-4.6 2.1-7 2.1v6.65c0 4.6 2.98 7.6 7 8.75 4.02-1.15 7-4.15 7-8.75V3.85c-2.4 0-4.6-.66-7-2.1Zm3.03 6.03-3.75 4.5a.75.75 0 0 1-1.12.06l-1.75-1.75a.75.75 0 1 1 1.06-1.06l1.16 1.16 3.24-3.88a.75.75 0 1 1 1.16.97Z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              Encrypted payment
+            </span>
+            <Link href="/refunds" className="flex items-center gap-1.5 hover:text-gray-700">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-brand-600">
+                <path d="M10 2a8 8 0 1 0 8 8h-1.5a6.5 6.5 0 1 1-1.9-4.6L12 8h5V3l-1.65 1.65A7.98 7.98 0 0 0 10 2Z" />
+              </svg>
+              30-day refunds
+            </Link>
+          </div>
+
           <Link href="/cart" className="block text-center text-sm text-gray-500 hover:underline">
             ← Back to cart
           </Link>
@@ -221,7 +291,17 @@ export default function CheckoutClient() {
               </div>
             ))}
           </div>
-          <div className="mt-4 flex justify-between border-t pt-4 font-bold">
+          <div className="mt-4 space-y-2 border-t pt-4 text-sm">
+            <div className="flex justify-between text-gray-600">
+              <span>Subtotal</span>
+              <span>{formatPrice(subtotal)}</span>
+            </div>
+            <div className="flex justify-between text-gray-600">
+              <span>{SHIPPING_OPTIONS[shippingMethod].label}</span>
+              <span>{formatPrice(shippingCost)}</span>
+            </div>
+          </div>
+          <div className="mt-2 flex justify-between border-t pt-4 font-bold">
             <span>Total</span>
             <span>{formatPrice(total)}</span>
           </div>

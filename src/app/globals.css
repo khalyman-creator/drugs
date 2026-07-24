@@ -7,12 +7,42 @@ body {
   background: #fafafa;
 }
 
+.font-display {
+  font-family: "Arial Black", Impact, Haettenschweiler, sans-serif;
+}
+
+.bg-grain {
+  position: relative;
+}
+
+.bg-grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center rounded-lg bg-brand-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700;
+    @apply font-display inline-flex items-center justify-center gap-2 rounded-sm border-2 border-gray-900 bg-gray-900 px-6 py-3 text-sm uppercase tracking-wide text-white shadow-sm transition hover:border-brand-600 hover:bg-brand-600;
   }
 
   .btn-outline {
-    @apply inline-flex items-center justify-center rounded-lg border-2 border-brand-600 px-6 py-3 text-sm font-semibold text-brand-700 transition hover:bg-brand-50;
+    @apply font-display inline-flex items-center justify-center gap-2 rounded-sm border-2 border-gray-900 px-6 py-3 text-sm uppercase tracking-wide text-gray-900 transition hover:bg-gray-900 hover:text-white;
+  }
+
+  .section-heading {
+    @apply font-display text-3xl uppercase leading-none tracking-tight text-gray-900 sm:text-5xl;
+  }
+
+  .section-sub {
+    @apply mt-3 max-w-2xl text-gray-500;
+  }
+
+  .accent-bar {
+    @apply mt-4 block h-1.5 w-16 bg-brand-600;
   }
 }

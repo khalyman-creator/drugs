@@ -26,11 +26,17 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = await req.json();
-  if (!body.id || !body.name) {
-    return NextResponse.json({ error: "id and name required" }, { status: 400 });
+  if (!body.id) {
+    return NextResponse.json({ error: "id required" }, { status: 400 });
+  }
+  if (body.name != null && !String(body.name).trim()) {
+    return NextResponse.json({ error: "name cannot be empty" }, { status: 400 });
   }
 
-  const updated = await updateSection(body.id, { name: body.name });
+  const updated = await updateSection(body.id, {
+    name: body.name,
+    is_active: body.is_active,
+  });
   if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(updated);
 }

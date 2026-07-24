@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Product, SectionWithProducts } from "@/lib/types";
-import { getAllSections } from "./supabase-sections";
+import { getAllSections, getSectionById } from "./supabase-sections";
 
 function slugify(name: string, id: number): string {
   const base = name
@@ -10,7 +10,9 @@ function slugify(name: string, id: number): string {
   return `${base}-${id}`;
 }
 
-export async function getAllProducts(): Promise<Product[]> {
+export async function getAllProducts(
+  opts: { includeInactive?: boolean } = {}
+): Promise<Product[]> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("products")
@@ -18,13 +20,21 @@ export async function getAllProducts(): Promise<Product[]> {
     .order("id", { ascending: true });
 
   if (error) throw error;
-  return (data ?? []) as Product[];
+  const products = (data ?? []) as Product[];
+  if (opts.includeInactive) return products;
+
+  const activeSectionIds = new Set(
+    (await getAllSections({ includeInactive: false })).map((s) => s.id)
+  );
+  return products.filter((p) => p.is_active && activeSectionIds.has(p.section_id));
 }
 
-export async function getProductsBySection(): Promise<SectionWithProducts[]> {
+export async function getProductsBySection(
+  opts: { includeInactive?: boolean } = {}
+): Promise<SectionWithProducts[]> {
   const [sections, products] = await Promise.all([
-    getAllSections(),
-    getAllProducts(),
+    getAllSections(opts),
+    getAllProducts(opts),
   ]);
 
   return sections.map((section) => ({
@@ -48,7 +58,10 @@ export async function searchProducts(query: string): Promise<Product[]> {
   );
 }
 
-export async function getProductBySlug(slug: string): Promise<Product | undefined> {
+export async function getProductBySlug(
+  slug: string,
+  opts: { includeInactive?: boolean } = {}
+): Promise<Product | undefined> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("products")
@@ -57,7 +70,14 @@ export async function getProductBySlug(slug: string): Promise<Product | undefine
     .maybeSingle();
 
   if (error) throw error;
-  return (data as Product) ?? undefined;
+  const product = (data as Product) ?? undefined;
+  if (!product || opts.includeInactive) return product;
+  if (!product.is_active) return undefined;
+
+  const section = await getSectionById(product.section_id);
+  if (!section || !section.is_active) return undefined;
+
+  return product;
 }
 
 export async function getProductById(id: number): Promise<Product | undefined> {
@@ -75,9 +95,12 @@ export async function getProductById(id: number): Promise<Product | undefined> {
 export async function createProduct(data: {
   name: string;
   description: string;
+  details?: string;
   image_url: string;
   price: number;
   section_id: number;
+  is_active?: boolean;
+  allow_custom_quantity?: boolean;
 }): Promise<Product> {
   const supabase = getSupabaseAdmin();
 
@@ -86,9 +109,12 @@ export async function createProduct(data: {
     .insert({
       name: data.name,
       description: data.description,
+      details: data.details ?? "",
       image_url: data.image_url,
       price: data.price,
       section_id: data.section_id,
+      is_active: data.is_active ?? true,
+      allow_custom_quantity: data.allow_custom_quantity ?? true,
     })
     .select("*")
     .single();
@@ -110,25 +136,31 @@ export async function createProduct(data: {
 export async function updateProduct(
   id: number,
   data: {
-    name: string;
-    description: string;
-    image_url: string;
+    name?: string;
+    description?: string;
+    details?: string;
+    image_url?: string;
     price?: number;
     section_id?: number;
+    is_active?: boolean;
+    allow_custom_quantity?: boolean;
   }
 ): Promise<Product | undefined> {
   const supabase = getSupabaseAdmin();
-  const slug = slugify(data.name, id);
 
   const { data: updated, error } = await supabase
     .from("products")
     .update({
-      name: data.name,
-      slug,
-      description: data.description,
-      image_url: data.image_url,
+      ...(data.name != null ? { name: data.name, slug: slugify(data.name, id) } : {}),
+      ...(data.description != null ? { description: data.description } : {}),
+      ...(data.details != null ? { details: data.details } : {}),
+      ...(data.image_url != null ? { image_url: data.image_url } : {}),
       ...(data.price != null ? { price: data.price } : {}),
       ...(data.section_id != null ? { section_id: data.section_id } : {}),
+      ...(data.is_active != null ? { is_active: data.is_active } : {}),
+      ...(data.allow_custom_quantity != null
+        ? { allow_custom_quantity: data.allow_custom_quantity }
+        : {}),
     })
     .eq("id", id)
     .select("*")

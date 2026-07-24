@@ -7,19 +7,23 @@ export function Testimonials({ settings }: { settings: SiteSettings }) {
     { name: settings.testimonial_3_name, text: settings.testimonial_3_text },
   ];
 
+  const rotations = ["-rotate-1", "rotate-1", "-rotate-2"];
+
   return (
     <section className="bg-brand-50 py-16 sm:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <h2 className="section-heading">What Our Customers Say</h2>
-        <p className="section-sub">Real feedback — edit these testimonials in your admin dashboard.</p>
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
+        <h2 className="section-heading">{settings.testimonials_title}</h2>
+        <span className="accent-bar" />
+        <p className="section-sub">{settings.testimonials_subtitle}</p>
+        <div className="mt-10 grid gap-8 md:grid-cols-3">
           {items.map((item, i) => (
             <div
               key={i}
-              className="rounded-2xl border border-brand-100 bg-white p-6 shadow-sm"
+              className={`${rotations[i % rotations.length]} rounded-sm border-2 border-gray-900 bg-white p-6 shadow-[4px_4px_0_0_rgba(17,24,39,1)] transition hover:rotate-0`}
             >
-              <p className="text-gray-600">&ldquo;{item.text}&rdquo;</p>
-              <p className="mt-4 font-semibold text-brand-800">— {item.name}</p>
+              <span className="font-display text-3xl leading-none text-brand-600">&ldquo;</span>
+              <p className="-mt-2 text-gray-700">{item.text}</p>
+              <p className="font-display mt-4 text-sm uppercase tracking-wide text-gray-900">— {item.name}</p>
             </div>
           ))}
         </div>

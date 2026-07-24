@@ -3,16 +3,30 @@ export type Product = {
   name: string;
   slug: string;
   description: string;
+  details: string;
   price: number;
   image_url: string;
   section_id: number;
+  is_active: boolean;
+  allow_custom_quantity: boolean;
   created_at: string;
+};
+
+export type ProductPricingOption = {
+  id: number;
+  product_id: number;
+  label: string;
+  price: number;
+  unit_quantity: number | null;
+  is_active: boolean;
+  sort_order: number;
 };
 
 export type Section = {
   id: number;
   name: string;
   sort_order: number;
+  is_active: boolean;
 };
 
 export type SiteSettings = {
@@ -37,6 +51,28 @@ export type SiteSettings = {
   testimonial_3_text: string;
   btc_wallet_address: string;
   btc_payment_enabled: boolean;
+  featured_products_title: string;
+  featured_products_subtitle: string;
+  testimonials_title: string;
+  testimonials_subtitle: string;
+  shipping_policy_text: string;
+  refund_policy_text: string;
+  gram_28g_label: string;
+  gram_28g_price: number;
+  gram_qtr_label: string;
+  gram_qtr_price: number;
+  gram_half_label: string;
+  gram_half_price: number;
+  gram_1lb_label: string;
+  gram_1lb_price: number;
+  button_8_label: string;
+  button_8_price: number;
+  button_16_label: string;
+  button_16_price: number;
+  button_32_label: string;
+  button_32_price: number;
+  button_64_label: string;
+  button_64_price: number;
 };
 
 export type Order = {

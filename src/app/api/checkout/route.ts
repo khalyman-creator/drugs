@@ -5,6 +5,15 @@ import {
   parseRawCheckoutItems,
 } from "@/lib/checkout/validate-items";
 
+const ALLOWED_SHIPPING = [10, 20] as const;
+
+function parseShipping(raw: unknown): number {
+  if (typeof raw === "number" && ALLOWED_SHIPPING.includes(raw as (typeof ALLOWED_SHIPPING)[number])) {
+    return raw;
+  }
+  return ALLOWED_SHIPPING[0];
+}
+
 function parseCustomer(raw: unknown) {
   if (typeof raw !== "object" || raw === null) return null;
 
@@ -52,6 +61,7 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => null);
     const rawItems = parseRawCheckoutItems(body?.items);
     const customer = parseCustomer(body?.customer);
+    const shipping = parseShipping(body?.shipping);
 
     if (!rawItems || !customer) {
       return NextResponse.json(
@@ -78,6 +88,7 @@ export async function POST(req: Request) {
     const result = await processCheckout({
       items: lockedItems,
       customer,
+      shipping,
     });
 
     return NextResponse.json(result);

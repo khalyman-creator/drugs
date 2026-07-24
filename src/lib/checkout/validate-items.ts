@@ -1,24 +1,19 @@
 import { getProductById } from "@/lib/db/supabase-products";
 import { getSectionById } from "@/lib/db/supabase-sections";
+import { getPricingOptionsForProduct } from "@/lib/db/supabase-pricing-options";
 import type { CreateOrderItemInput } from "@/lib/db/supabase-orders";
+import type { Product } from "@/lib/types";
 import {
   formatVariantLineName,
+  getActiveOptions,
   getPricingMode,
   recalculateLinePrice,
-  resolveButtonSelection,
-  resolveGramSelection,
-  type ButtonOptionId,
-  type GramOptionId,
 } from "@/lib/pricing";
 
 export type RawCheckoutItem = {
   productId: number;
   quantity: number;
   variantLabel?: string;
-  gramOption?: GramOptionId;
-  customGrams?: number;
-  buttonOption?: ButtonOptionId;
-  customButtons?: number;
 };
 
 export function parseRawCheckoutItems(raw: unknown): RawCheckoutItem[] | null {
@@ -50,69 +45,42 @@ export function parseRawCheckoutItems(raw: unknown): RawCheckoutItem[] | null {
         ? (entry as { variantLabel: string }).variantLabel
         : undefined;
 
-    items.push({
-      productId,
-      quantity,
-      variantLabel,
-      gramOption: (entry as { gramOption?: GramOptionId }).gramOption,
-      customGrams: (entry as { customGrams?: number }).customGrams,
-      buttonOption: (entry as { buttonOption?: ButtonOptionId }).buttonOption,
-      customButtons: (entry as { customButtons?: number }).customButtons,
-    });
+    items.push({ productId, quantity, variantLabel });
   }
 
   return items;
 }
 
+// Server-side trusted price resolution — never trust a price the client
+// sends directly. Re-derives it from the product's own active pricing
+// options (or its base price, for standard-mode products).
 async function resolveVariantPrice(
-  sectionId: number,
+  product: Product,
   item: RawCheckoutItem
 ): Promise<{ variantLabel: string; unitPrice: number }> {
-  const mode = getPricingMode(sectionId);
+  const mode = getPricingMode(product.section_id);
 
-  if (mode === "gram") {
-    if (item.gramOption) {
-      const resolved = resolveGramSelection(item.gramOption, item.customGrams);
-      return { variantLabel: resolved.variantLabel, unitPrice: resolved.price };
-    }
-    if (item.variantLabel) {
-      return {
-        variantLabel: item.variantLabel,
-        unitPrice: recalculateLinePrice({
-          sectionId,
-          variantLabel: item.variantLabel,
-          quantity: 1,
-        }),
-      };
-    }
-    const resolved = resolveGramSelection("28g");
-    return { variantLabel: resolved.variantLabel, unitPrice: resolved.price };
+  if (mode === "standard") {
+    return {
+      variantLabel: item.variantLabel ?? `${item.quantity} unit(s)`,
+      unitPrice: product.price,
+    };
   }
 
-  if (mode === "button") {
-    if (item.buttonOption) {
-      const resolved = resolveButtonSelection(item.buttonOption, item.customButtons);
-      return { variantLabel: resolved.variantLabel, unitPrice: resolved.price };
-    }
-    if (item.variantLabel) {
-      return {
-        variantLabel: item.variantLabel,
-        unitPrice: recalculateLinePrice({
-          sectionId,
-          variantLabel: item.variantLabel,
-          quantity: 1,
-        }),
-      };
-    }
-    const resolved = resolveButtonSelection("8");
-    return { variantLabel: resolved.variantLabel, unitPrice: resolved.price };
+  const options = await getPricingOptionsForProduct(product.id);
+
+  if (item.variantLabel) {
+    return {
+      variantLabel: item.variantLabel,
+      unitPrice: recalculateLinePrice(item.variantLabel, options, product.allow_custom_quantity),
+    };
   }
 
-  const product = await getProductById(item.productId);
-  return {
-    variantLabel: item.variantLabel ?? `${item.quantity} unit(s)`,
-    unitPrice: product!.price,
-  };
+  const active = getActiveOptions(options);
+  if (active.length === 0) {
+    throw new Error(`Product ${product.id} is no longer available`);
+  }
+  return { variantLabel: active[0].label, unitPrice: active[0].price };
 }
 
 export async function lockOrderItemsFromCatalog(
@@ -127,7 +95,17 @@ export async function lockOrderItemsFromCatalog(
     }
 
     const section = await getSectionById(product.section_id);
-    const { variantLabel, unitPrice } = await resolveVariantPrice(product.section_id, item);
+    if (!product.is_active || !section?.is_active) {
+      throw new Error(`Product ${item.productId} is no longer available`);
+    }
+
+    let variantLabel: string;
+    let unitPrice: number;
+    try {
+      ({ variantLabel, unitPrice } = await resolveVariantPrice(product, item));
+    } catch {
+      throw new Error(`Product ${item.productId} is no longer available`);
+    }
 
     locked.push({
       productId: product.id,

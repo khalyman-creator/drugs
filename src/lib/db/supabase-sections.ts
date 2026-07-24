@@ -1,7 +1,9 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import type { Section } from "@/lib/types";
 
-export async function getAllSections(): Promise<Section[]> {
+export async function getAllSections(
+  opts: { includeInactive?: boolean } = {}
+): Promise<Section[]> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("sections")
@@ -9,7 +11,8 @@ export async function getAllSections(): Promise<Section[]> {
     .order("sort_order", { ascending: true });
 
   if (error) throw error;
-  return (data ?? []) as Section[];
+  const sections = (data ?? []) as Section[];
+  return opts.includeInactive ? sections : sections.filter((s) => s.is_active);
 }
 
 export async function getSectionById(id: number): Promise<Section | undefined> {
@@ -47,12 +50,15 @@ export async function createSection(name: string): Promise<Section> {
 
 export async function updateSection(
   id: number,
-  data: { name: string }
+  data: { name?: string; is_active?: boolean }
 ): Promise<Section | undefined> {
   const supabase = getSupabaseAdmin();
   const { data: updated, error } = await supabase
     .from("sections")
-    .update({ name: data.name })
+    .update({
+      ...(data.name != null ? { name: data.name } : {}),
+      ...(data.is_active != null ? { is_active: data.is_active } : {}),
+    })
     .eq("id", id)
     .select("*")
     .maybeSingle();

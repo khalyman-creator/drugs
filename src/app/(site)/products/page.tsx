@@ -1,9 +1,34 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getSiteSettings } from "@/lib/db/supabase-settings";
 import { getProductsBySection, searchProducts } from "@/lib/db/supabase-products";
+import { getPricingOptionsForProducts } from "@/lib/db/supabase-pricing-options";
 import { ProductCard } from "@/components/ProductCard";
+import { getSiteUrl } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await getSiteSettings();
+  const url = `${getSiteUrl()}/products`;
+
+  return {
+    title: settings.products_page_title,
+    description: settings.products_page_subtitle,
+    alternates: { canonical: url },
+    openGraph: {
+      title: settings.products_page_title,
+      description: settings.products_page_subtitle,
+      url,
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: settings.products_page_title,
+      description: settings.products_page_subtitle,
+    },
+  };
+}
 
 export default async function ProductsPage({
   searchParams,
@@ -15,6 +40,11 @@ export default async function ProductsPage({
   const settings = await getSiteSettings();
   const sections = await getProductsBySection();
   const results = query ? await searchProducts(query) : null;
+
+  const allIds = new Set<number>();
+  for (const section of sections) for (const p of section.products) allIds.add(p.id);
+  if (results) for (const p of results) allIds.add(p.id);
+  const pricingOptionsByProduct = await getPricingOptionsForProducts(Array.from(allIds));
 
   return (
     <>
@@ -38,7 +68,11 @@ export default async function ProductsPage({
           results && results.length > 0 ? (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {results.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  pricingOptions={pricingOptionsByProduct.get(product.id) ?? []}
+                />
               ))}
             </div>
           ) : (
@@ -75,7 +109,11 @@ export default async function ProductsPage({
                   </div>
                   <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                     {section.products.map((product) => (
-                      <ProductCard key={product.id} product={product} />
+                      <ProductCard
+                  key={product.id}
+                  product={product}
+                  pricingOptions={pricingOptionsByProduct.get(product.id) ?? []}
+                />
                     ))}
                   </div>
                 </section>

@@ -5,21 +5,38 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatPrice } from "@/lib/format";
 import { makeLineKey } from "@/lib/cart";
-import { formatVariantLineName, getDisplayFromPrice, getPricingMode } from "@/lib/pricing";
-import type { Product } from "@/lib/types";
+import {
+  formatVariantLineName,
+  getActiveOptions,
+  getDisplayFromPrice,
+  getPricingMode,
+  resolvePricingSelection,
+} from "@/lib/pricing";
+import type { Product, ProductPricingOption } from "@/lib/types";
 import { useCart } from "./CartProvider";
 import { SectionQuantityPicker, type SectionSelection } from "./SectionQuantityPicker";
 
-function AddToCartBlock({ product, sectionId }: { product: Product; sectionId: number }) {
+function AddToCartBlock({
+  product,
+  sectionId,
+  pricingOptions,
+  allowCustomQuantity,
+}: {
+  product: Product;
+  sectionId: number;
+  pricingOptions: ProductPricingOption[];
+  allowCustomQuantity: boolean;
+}) {
   const { addItem, replaceCart, hydrated } = useCart();
   const router = useRouter();
   const mode = getPricingMode(sectionId);
   const [selection, setSelection] = useState<SectionSelection>(() => {
-    if (mode === "button") {
-      return { variantLabel: "8 buttons", price: 150, quantity: 1 };
-    }
-    if (mode === "gram") {
-      return { variantLabel: "28g", price: 200, quantity: 1 };
+    if (mode !== "standard") {
+      const active = getActiveOptions(pricingOptions);
+      if (active.length > 0) {
+        return resolvePricingSelection(active[0].id, pricingOptions, mode);
+      }
+      return { variantLabel: "Unavailable", price: 0, quantity: 0 };
     }
     return { variantLabel: "1 unit", price: product.price, quantity: 1 };
   });
@@ -62,6 +79,7 @@ function AddToCartBlock({ product, sectionId }: { product: Product; sectionId: n
   }
 
   const lineTotal = selection.price * selection.quantity;
+  const unavailable = selection.quantity === 0;
 
   return (
     <div className="space-y-4">
@@ -69,13 +87,16 @@ function AddToCartBlock({ product, sectionId }: { product: Product; sectionId: n
         sectionId={sectionId}
         productId={product.id}
         basePrice={product.price}
+        pricingOptions={pricingOptions}
+        allowCustomQuantity={allowCustomQuantity}
         onChange={onSelectionChange}
       />
 
       <button
         type="button"
         onClick={handleAdd}
-        className="w-full rounded-lg bg-brand-600 py-4 text-base font-bold uppercase tracking-wide text-white shadow-md transition hover:bg-brand-700"
+        disabled={unavailable}
+        className="w-full rounded-lg bg-brand-600 py-4 text-base font-bold uppercase tracking-wide text-white shadow-md transition hover:bg-brand-700 disabled:opacity-60"
       >
         {added ? "✓ Added to Cart" : "Add to Cart"}
       </button>
@@ -83,7 +104,7 @@ function AddToCartBlock({ product, sectionId }: { product: Product; sectionId: n
       <button
         type="button"
         onClick={handleBuyNow}
-        disabled={loading}
+        disabled={loading || unavailable}
         className="w-full rounded-lg border-2 border-gray-800 py-3 text-sm font-semibold text-gray-800 transition hover:bg-gray-50 disabled:opacity-60"
       >
         Buy Now — {formatPrice(lineTotal)}
@@ -95,9 +116,11 @@ function AddToCartBlock({ product, sectionId }: { product: Product; sectionId: n
 export function ProductPageClient({
   product,
   sectionName,
+  pricingOptions,
 }: {
   product: Product;
   sectionName: string;
+  pricingOptions: ProductPricingOption[];
 }) {
   const sectionId = product.section_id;
 
@@ -143,7 +166,7 @@ export function ProductPageClient({
           <p className="mt-5 text-4xl font-bold text-brand-700">
             {getPricingMode(sectionId) === "standard"
               ? formatPrice(product.price)
-              : `From ${formatPrice(getDisplayFromPrice(sectionId))}`}
+              : formatPrice(getDisplayFromPrice(pricingOptions, product.price))}
           </p>
           <p className="mt-1 text-sm text-gray-400">SKU: RD-{product.id}</p>
 
@@ -152,7 +175,12 @@ export function ProductPageClient({
           </p>
 
           <div className="mt-8">
-            <AddToCartBlock product={product} sectionId={sectionId} />
+            <AddToCartBlock
+              product={product}
+              sectionId={sectionId}
+              pricingOptions={pricingOptions}
+              allowCustomQuantity={product.allow_custom_quantity}
+            />
           </div>
 
           <ul className="mt-8 space-y-2 border-t border-gray-100 pt-6 text-sm text-gray-600">
@@ -171,6 +199,9 @@ export function ProductPageClient({
         <div className="max-w-3xl text-gray-600">
           <h2 className="text-xl font-bold text-gray-900">Product Details</h2>
           <p className="mt-4 leading-relaxed">{product.description}</p>
+          {product.details && (
+            <p className="mt-4 whitespace-pre-line leading-relaxed">{product.details}</p>
+          )}
           <ul className="mt-6 space-y-2 border-t border-gray-100 pt-6 text-sm">
             <li>
               <span className="font-medium text-gray-900">Category:</span> {sectionName}

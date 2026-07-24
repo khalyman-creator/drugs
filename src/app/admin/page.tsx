@@ -14,9 +14,9 @@ export default async function AdminPage() {
     redirect("/admin/login");
   }
 
-  const products = await getAllProducts();
+  const products = await getAllProducts({ includeInactive: true });
   const orders = await getAllOrdersForAdmin();
-  const sections = await getAllSections();
+  const sections = await getAllSections({ includeInactive: true });
   const settings = await getSiteSettings();
 
   return (

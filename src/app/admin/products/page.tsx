@@ -11,8 +11,8 @@ export default async function AdminProductsPage() {
     redirect("/admin/login");
   }
 
-  const products = await getAllProducts();
-  const sections = await getAllSections();
+  const products = await getAllProducts({ includeInactive: true });
+  const sections = await getAllSections({ includeInactive: true });
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">

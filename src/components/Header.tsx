@@ -4,23 +4,20 @@ import { HeaderSearch } from "./HeaderSearch";
 
 export function Header({ storeName }: { storeName: string; tagline: string }) {
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-200 bg-white shadow-sm">
+    <header className="sticky top-0 z-50 border-b-2 border-gray-900 bg-white">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
-        <Link href="/" className="shrink-0 text-xl font-bold text-brand-700">
+        <Link href="/" className="font-display shrink-0 text-xl uppercase tracking-tight text-gray-900">
           {storeName}
         </Link>
         <div className="hidden min-w-0 flex-1 sm:block">
           <HeaderSearch />
         </div>
         <nav className="flex shrink-0 items-center gap-4 sm:gap-5">
-          <Link href="/products" className="text-sm font-medium text-gray-600 hover:text-brand-700">
+          <Link href="/products" className="text-sm font-bold uppercase tracking-wide text-gray-700 hover:text-brand-600">
             Shop
           </Link>
-          <Link href="/contact" className="hidden text-sm font-medium text-gray-600 hover:text-brand-700 sm:inline">
+          <Link href="/contact" className="hidden text-sm font-bold uppercase tracking-wide text-gray-700 hover:text-brand-600 sm:inline">
             Contact
-          </Link>
-          <Link href="/admin/login" className="hidden text-sm text-gray-400 hover:text-gray-600 md:inline">
-            Admin
           </Link>
           <CartButton />
         </nav>
