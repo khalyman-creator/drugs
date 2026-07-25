@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Product, ProductPricingOption, Section, SiteSettings } from "@/lib/types";
+import type { Product, ProductImage, ProductPricingOption, Section, SiteSettings } from "@/lib/types";
 import { getPricingMode } from "@/lib/pricing";
 
 type PricingOptionRow = {
@@ -24,18 +24,23 @@ function toRows(options: ProductPricingOption[]): PricingOptionRow[] {
   }));
 }
 
+// 1 cover photo (Product Image, above) + up to this many extras = 5 total.
+const MAX_ADDITIONAL_IMAGES = 4;
+
 export function ProductForm({
   mode,
   product,
   sections,
   pricingOptions,
   siteDefaults,
+  productImages,
 }: {
   mode: "create" | "edit";
   product?: Product;
   sections: Section[];
   pricingOptions?: ProductPricingOption[];
   siteDefaults?: SiteSettings;
+  productImages?: ProductImage[];
 }) {
   const router = useRouter();
   const [current, setCurrent] = useState(product);
@@ -50,6 +55,11 @@ export function ProductForm({
     allow_custom_quantity: product?.allow_custom_quantity ?? true,
   });
   const [rows, setRows] = useState<PricingOptionRow[]>(() => toRows(pricingOptions ?? []));
+  const [galleryImages, setGalleryImages] = useState<string[]>(
+    () => productImages?.map((img) => img.image_url) ?? []
+  );
+  const [galleryUploadingIndex, setGalleryUploadingIndex] = useState<number | null>(null);
+  const [galleryUploadError, setGalleryUploadError] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -113,6 +123,39 @@ export function ProductForm({
     setUploading(false);
   }
 
+  function addGalleryImage() {
+    setGalleryImages((prev) => (prev.length >= MAX_ADDITIONAL_IMAGES ? prev : [...prev, ""]));
+  }
+
+  function updateGalleryImage(index: number, url: string) {
+    setGalleryImages((prev) => prev.map((u, i) => (i === index ? url : u)));
+  }
+
+  function removeGalleryImage(index: number) {
+    setGalleryImages((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function handleGalleryUpload(index: number, e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setGalleryUploadingIndex(index);
+    setGalleryUploadError("");
+    const body = new FormData();
+    body.append("file", file);
+
+    const res = await fetch("/api/upload", { method: "POST", body });
+    if (res.ok) {
+      const { url } = await res.json();
+      updateGalleryImage(index, url);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      setGalleryUploadError(data.error || "Upload failed");
+    }
+    setGalleryUploadingIndex(null);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -121,6 +164,7 @@ export function ProductForm({
     const body = {
       ...form,
       pricing_options: pricingMode === "standard" ? [] : rows,
+      images: galleryImages.filter((u) => u.trim()),
     };
 
     if (mode === "create") {
@@ -297,6 +341,67 @@ export function ProductForm({
               className="mt-2 h-32 w-32 rounded-xl object-cover"
             />
           )}
+        </div>
+
+        <div className="rounded-xl border border-gray-200 p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <label className="text-sm font-medium">
+              Additional Photos ({galleryImages.length}/{MAX_ADDITIONAL_IMAGES})
+            </label>
+            <button
+              type="button"
+              onClick={addGalleryImage}
+              disabled={galleryImages.length >= MAX_ADDITIONAL_IMAGES}
+              className="text-xs font-semibold text-brand-600 hover:underline disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              + Add photo
+            </button>
+          </div>
+          <p className="mb-3 text-xs text-gray-500">
+            Shown as a gallery on the product page alongside the main photo above. Add as many
+            as you want, up to {MAX_ADDITIONAL_IMAGES} extra ({MAX_ADDITIONAL_IMAGES + 1} total).
+          </p>
+
+          {galleryUploadError && <p className="mb-2 text-xs text-red-600">{galleryUploadError}</p>}
+
+          <div className="space-y-3">
+            {galleryImages.length === 0 && (
+              <p className="text-xs text-gray-400">No additional photos yet.</p>
+            )}
+            {galleryImages.map((url, i) => (
+              <div key={i} className="flex items-center gap-3 rounded-lg border border-gray-100 bg-gray-50 p-3">
+                {url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={url} alt={`Photo ${i + 2}`} className="h-16 w-16 shrink-0 rounded-lg object-cover" />
+                )}
+                <div className="min-w-0 flex-1 space-y-2">
+                  <input
+                    value={url}
+                    onChange={(e) => updateGalleryImage(i, e.target.value)}
+                    placeholder="Paste an image URL"
+                    className="w-full rounded-lg border px-3 py-2 text-sm"
+                  />
+                  <label className="inline-block cursor-pointer text-xs font-medium text-brand-600 hover:underline">
+                    {galleryUploadingIndex === i ? "Uploading..." : "Upload photo"}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/gif"
+                      onChange={(e) => handleGalleryUpload(i, e)}
+                      disabled={galleryUploadingIndex === i}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeGalleryImage(i)}
+                  className="shrink-0 rounded-lg border border-red-200 px-2 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div>

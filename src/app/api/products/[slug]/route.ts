@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProductBySlug, updateProduct, deleteProduct } from "@/lib/db/supabase-products";
 import { replacePricingOptionsForProduct } from "@/lib/db/supabase-pricing-options";
+import { replaceImagesForProduct } from "@/lib/db/supabase-product-images";
 import { isAdminLoggedIn } from "@/lib/auth";
 
 export async function GET(
@@ -48,6 +49,13 @@ export async function PUT(
           is_active: o.is_active ?? true,
         })
       )
+    );
+  }
+
+  if (Array.isArray(body.images)) {
+    await replaceImagesForProduct(
+      product.id,
+      body.images.filter((u: unknown) => typeof u === "string")
     );
   }
 

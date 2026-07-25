@@ -12,6 +12,13 @@ export type Product = {
   created_at: string;
 };
 
+export type ProductImage = {
+  id: number;
+  product_id: number;
+  image_url: string;
+  sort_order: number;
+};
+
 export type ProductPricingOption = {
   id: number;
   product_id: number;

@@ -12,9 +12,45 @@ import {
   getPricingMode,
   resolvePricingSelection,
 } from "@/lib/pricing";
-import type { Product, ProductPricingOption } from "@/lib/types";
+import type { Product, ProductImage, ProductPricingOption } from "@/lib/types";
 import { useCart } from "./CartProvider";
 import { SectionQuantityPicker, type SectionSelection } from "./SectionQuantityPicker";
+
+function ProductGallery({ product, galleryImages }: { product: Product; galleryImages: ProductImage[] }) {
+  const images = [product.image_url, ...galleryImages.map((img) => img.image_url)].filter(Boolean);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeImage = images[activeIndex] ?? "/placeholder.svg";
+
+  return (
+    <div>
+      <div className="relative overflow-hidden rounded-xl bg-gray-50">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={activeImage}
+          alt={product.name}
+          className="aspect-square w-full object-cover"
+        />
+      </div>
+      {images.length > 1 && (
+        <div className="mt-3 grid grid-cols-5 gap-2">
+          {images.map((src, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setActiveIndex(i)}
+              className={`overflow-hidden rounded-lg border-2 transition ${
+                i === activeIndex ? "border-brand-600" : "border-transparent hover:border-gray-300"
+              }`}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt={`${product.name} ${i + 1}`} className="aspect-square w-full object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function AddToCartBlock({
   product,
@@ -117,10 +153,12 @@ export function ProductPageClient({
   product,
   sectionName,
   pricingOptions,
+  galleryImages,
 }: {
   product: Product;
   sectionName: string;
   pricingOptions: ProductPricingOption[];
+  galleryImages: ProductImage[];
 }) {
   const sectionId = product.section_id;
 
@@ -142,17 +180,7 @@ export function ProductPageClient({
       {/* Main product layout — WooCommerce-style */}
       <div className="grid gap-10 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm lg:grid-cols-2 lg:p-10">
         {/* Image */}
-        <div className="relative overflow-hidden rounded-xl bg-gray-50">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={product.image_url || "/placeholder.svg"}
-            alt={product.name}
-            className="aspect-square w-full object-cover"
-          />
-          <span className="absolute left-4 top-4 rounded bg-white/90 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-gray-700 shadow">
-            {sectionName}
-          </span>
-        </div>
+        <ProductGallery product={product} galleryImages={galleryImages} />
 
         {/* Product summary */}
         <div className="flex flex-col">

@@ -7,6 +7,7 @@ import {
   getPricingOptionsForProduct,
   getPricingOptionsForProducts,
 } from "@/lib/db/supabase-pricing-options";
+import { getImagesForProduct } from "@/lib/db/supabase-product-images";
 import { ProductPageClient } from "@/components/ProductPageClient";
 import { ProductCard } from "@/components/ProductCard";
 import { getSiteUrl } from "@/lib/env";
@@ -60,6 +61,7 @@ export default async function ProductPage({
   const related = allProducts.filter((p) => p.id !== product.id).slice(0, 4);
   const pricingOptions = await getPricingOptionsForProduct(product.id);
   const relatedPricingOptions = await getPricingOptionsForProducts(related.map((p) => p.id));
+  const galleryImages = await getImagesForProduct(product.id);
 
   const price =
     getPricingMode(product.section_id) === "standard"
@@ -71,7 +73,9 @@ export default async function ProductPage({
     "@type": "Product",
     name: product.name,
     description: product.description || product.name,
-    image: product.image_url ? [product.image_url] : undefined,
+    image: product.image_url
+      ? [product.image_url, ...galleryImages.map((img) => img.image_url)]
+      : undefined,
     sku: String(product.id),
     url: `${getSiteUrl()}/product/${product.slug}`,
     offers: {
@@ -93,6 +97,7 @@ export default async function ProductPage({
         product={product}
         sectionName={section?.name ?? "Shop"}
         pricingOptions={pricingOptions}
+        galleryImages={galleryImages}
       />
 
       {related.length > 0 && (

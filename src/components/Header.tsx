@@ -6,8 +6,9 @@ export function Header({ storeName }: { storeName: string; tagline: string }) {
   return (
     <header className="sticky top-0 z-50 border-b-2 border-gray-900 bg-white">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
-        <Link href="/" className="font-display shrink-0 text-xl uppercase tracking-tight text-gray-900">
-          {storeName}
+        <Link href="/" className="font-display shrink-0 text-xl uppercase tracking-tight">
+          <span className="text-gray-900">Silk</span>
+          <span className="text-brand-600">Freedom</span>
         </Link>
         <div className="hidden min-w-0 flex-1 sm:block">
           <HeaderSearch />
