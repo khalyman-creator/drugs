@@ -141,7 +141,7 @@ export default function CheckoutClient() {
       </p>
 
       <div className="grid gap-8 lg:grid-cols-5">
-        <form onSubmit={handleSubmit} className="space-y-4 lg:col-span-3">
+        <form onSubmit={handleSubmit} className="min-w-0 space-y-4 lg:col-span-3">
           <div className="rounded-xl border border-gray-200 bg-white p-5">
             <h2 className="font-semibold">Shipping</h2>
             <div className="mt-4 space-y-3">
@@ -279,7 +279,7 @@ export default function CheckoutClient() {
           </Link>
         </form>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-5 lg:col-span-2">
+        <div className="min-w-0 rounded-xl border border-gray-200 bg-white p-5 lg:col-span-2">
           <h2 className="font-semibold">Order summary</h2>
           <div className="mt-4 space-y-2">
             {cart.items.map((item) => (
