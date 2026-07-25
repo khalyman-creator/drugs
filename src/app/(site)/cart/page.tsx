@@ -6,7 +6,7 @@ import { formatPrice } from "@/lib/format";
 import { getPricingMode } from "@/lib/pricing";
 
 export default function CartPage() {
-  const { cart, removeItem, hydrated } = useCart();
+  const { cart, removeItem, clearCart, hydrated } = useCart();
 
   if (!hydrated) {
     return (
@@ -32,7 +32,19 @@ export default function CartPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-      <h1 className="mb-8 text-3xl font-bold">Cart</h1>
+      <div className="mb-8 flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Cart</h1>
+        {cart.items.length > 1 && (
+          <button
+            onClick={() => {
+              if (confirm("Remove all items from your cart?")) clearCart();
+            }}
+            className="text-sm font-medium text-red-500 hover:underline"
+          >
+            Clear Cart
+          </button>
+        )}
+      </div>
       <div className="space-y-4">
         {cart.items.map((item) => (
           <div

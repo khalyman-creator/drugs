@@ -136,9 +136,7 @@ export default function CheckoutClient() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
       <h1 className="mb-2 text-2xl font-bold">Checkout</h1>
-      <p className="mb-8 text-gray-500">
-        Pay securely with crypto via NOWPayments. Minimum order {formatPrice(MIN_CHECKOUT)}.
-      </p>
+      <p className="mb-8 text-gray-500">Pay securely with crypto via NOWPayments.</p>
 
       <div className="grid gap-8 lg:grid-cols-5">
         <form onSubmit={handleSubmit} className="min-w-0 space-y-4 lg:col-span-3">
