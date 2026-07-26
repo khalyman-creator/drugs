@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getSiteSettings } from "@/lib/db/supabase-settings";
-import { getAllProducts } from "@/lib/db/supabase-products";
+import { getProductsBySection } from "@/lib/db/supabase-products";
 import { getPricingOptionsForProducts } from "@/lib/db/supabase-pricing-options";
 import { getApprovedReviews } from "@/lib/db/supabase-reviews";
 import { Hero } from "@/components/Hero";
@@ -17,7 +17,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function HomePage() {
   const settings = await getSiteSettings();
-  const products = await getAllProducts();
+  const sections = await getProductsBySection();
+  const products = sections.flatMap((s) => s.products);
   const pricingOptionsByProduct = await getPricingOptionsForProducts(products.map((p) => p.id));
   const reviews = await getApprovedReviews();
   const siteUrl = getSiteUrl();
