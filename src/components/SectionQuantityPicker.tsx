@@ -7,6 +7,7 @@ import {
   getPricingMode,
   hasCustomQuantitySupport,
   priceFromCustomQuantity,
+  customRatePerUnit,
   resolvePricingSelection,
   clampGrams,
   clampButtons,
@@ -45,8 +46,11 @@ export function SectionQuantityPicker({
   const unitMin = mode === "button" ? BUTTON_MIN : GRAM_MIN;
 
   const [selectedId, setSelectedId] = useState<number | "custom">(activeOptions[0]?.id ?? "custom");
-  const [customQty, setCustomQty] = useState(unitMin);
+  const [customQtyInput, setCustomQtyInput] = useState(String(unitMin));
   const [standardQty, setStandardQty] = useState(1);
+
+  const parsedCustomQty = Number.parseInt(customQtyInput, 10);
+  const customBelowMin = !Number.isFinite(parsedCustomQty) || parsedCustomQty < unitMin;
 
   const selection = useMemo((): SectionSelection => {
     if (mode === "standard") {
@@ -61,8 +65,9 @@ export function SectionQuantityPicker({
       return { variantLabel: "Unavailable", price: 0, quantity: 0 };
     }
 
-    return resolvePricingSelection(selectedId, pricingOptions, mode, customQty);
-  }, [mode, selectedId, customQty, standardQty, basePrice, activeOptions.length, pricingOptions]);
+    return resolvePricingSelection(selectedId, pricingOptions, mode, parsedCustomQty);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, selectedId, parsedCustomQty, standardQty, basePrice, activeOptions.length, pricingOptions]);
 
   useEffect(() => {
     onChange(selection);
@@ -134,30 +139,41 @@ export function SectionQuantityPicker({
       </div>
 
       {selectedId === "custom" && canUseCustom && (
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <label className="text-sm font-medium text-gray-700">
-            {mode === "button" ? "Buttons" : "Grams"}
-          </label>
-          <input
-            type="number"
-            min={unitMin}
-            max={9999}
-            step={1}
-            value={customQty}
-            onChange={(e) => {
-              const parsed = Number.parseInt(e.target.value, 10);
-              if (Number.isNaN(parsed)) return;
-              setCustomQty(mode === "button" ? clampButtons(parsed) : clampGrams(parsed));
-            }}
-            onBlur={() =>
-              setCustomQty((q) => (mode === "button" ? clampButtons(q) : clampGrams(q)))
-            }
-            className="w-28 rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold"
-          />
-          <span className="text-xs text-gray-500">
-            Minimum {unitMin}
-            {mode === "gram" ? "g" : ""} — {formatPrice(priceFromCustomQuantity(unitMin, pricingOptions))}+
-          </span>
+        <div className="mt-3 space-y-1.5">
+          {customBelowMin && (
+            <p className="text-xs font-semibold text-red-600">
+              {unitMin}
+              {mode === "gram" ? "g" : ""} minimum
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="text-sm font-medium text-gray-700">
+              {mode === "button" ? "Buttons" : "Grams"}
+            </label>
+            <input
+              type="number"
+              min={unitMin}
+              max={9999}
+              step={1}
+              value={customQtyInput}
+              onChange={(e) => setCustomQtyInput(e.target.value)}
+              onBlur={() => {
+                const clamped =
+                  mode === "button" ? clampButtons(parsedCustomQty) : clampGrams(parsedCustomQty);
+                setCustomQtyInput(String(clamped));
+              }}
+              className={`w-28 rounded-lg border px-3 py-2 text-sm font-semibold ${
+                customBelowMin ? "border-red-400" : "border-gray-300"
+              }`}
+            />
+            <span className="text-xs text-gray-500">
+              {formatPrice(priceFromCustomQuantity(unitMin, pricingOptions))}+
+              {(() => {
+                const rate = customRatePerUnit(pricingOptions);
+                return rate != null ? ` · ${formatPrice(rate)}/${mode === "gram" ? "g" : "button"}` : "";
+              })()}
+            </span>
+          </div>
         </div>
       )}
 

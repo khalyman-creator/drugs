@@ -50,6 +50,14 @@ export function priceFromCustomQuantity(quantity: number, options: ProductPricin
   return Math.round(quantity * perUnit);
 }
 
+// Raw (unrounded) per-unit rate, for display purposes only — actual charges
+// always round the total via priceFromCustomQuantity, not each unit.
+export function customRatePerUnit(options: ProductPricingOption[]): number | null {
+  const anchor = findRateAnchor(options);
+  if (!anchor) return null;
+  return anchor.price / anchor.unit_quantity!;
+}
+
 export type PricingSelection = {
   variantLabel: string;
   price: number;
