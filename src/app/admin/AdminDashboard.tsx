@@ -53,6 +53,8 @@ export function AdminDashboard({
   const [sectionActive, setSectionActive] = useState(true);
   const [sectionDeleteArmed, setSectionDeleteArmed] = useState(false);
   const [togglingSectionId, setTogglingSectionId] = useState<number | null>(null);
+  const [draggedSectionId, setDraggedSectionId] = useState<number | null>(null);
+  const [dragOverSectionId, setDragOverSectionId] = useState<number | null>(null);
 
   async function handleLogout() {
     await fetch("/api/auth/login", { method: "DELETE" });
@@ -185,6 +187,42 @@ export function AdminDashboard({
       setMessage(data.error || `Failed to update "${section.name}"`);
     }
     setTogglingSectionId(null);
+  }
+
+  async function persistSectionOrder(ordered: Section[]) {
+    const res = await fetch("/api/sections", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderedIds: ordered.map((s) => s.id) }),
+    });
+    if (res.ok) {
+      const updated: Section[] = await res.json();
+      setSections((prev) =>
+        prev
+          .map((s) => updated.find((u) => u.id === s.id) ?? s)
+          .sort((a, b) => a.sort_order - b.sort_order)
+      );
+      router.refresh();
+    } else {
+      setMessage("Failed to save new section order");
+    }
+  }
+
+  function handleSectionDrop(targetId: number) {
+    const fromId = draggedSectionId;
+    setDraggedSectionId(null);
+    setDragOverSectionId(null);
+    if (fromId == null || fromId === targetId) return;
+
+    const fromIndex = sections.findIndex((s) => s.id === fromId);
+    const toIndex = sections.findIndex((s) => s.id === targetId);
+    if (fromIndex === -1 || toIndex === -1) return;
+
+    const reordered = [...sections];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    setSections(reordered);
+    persistSectionOrder(reordered);
   }
 
   function cancelSectionForm() {
@@ -828,11 +866,47 @@ export function AdminDashboard({
                 + Add New Section
               </button>
             </div>
+            <p className="px-4 pt-3 text-xs text-gray-400">
+              Drag <span aria-hidden>⠿</span> to reorder sections on the storefront.
+            </p>
             <ul className="divide-y">
               {sections.map((section) => {
                 const count = products.filter((p) => p.section_id === section.id).length;
                 return (
-                  <li key={section.id} className="flex items-center gap-2 p-2">
+                  <li
+                    key={section.id}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (dragOverSectionId !== section.id) setDragOverSectionId(section.id);
+                    }}
+                    onDragLeave={() =>
+                      setDragOverSectionId((id) => (id === section.id ? null : id))
+                    }
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      handleSectionDrop(section.id);
+                    }}
+                    className={`flex items-center gap-2 p-2 transition-colors ${
+                      draggedSectionId === section.id ? "opacity-40" : ""
+                    } ${
+                      dragOverSectionId === section.id && draggedSectionId !== section.id
+                        ? "bg-brand-50"
+                        : ""
+                    }`}
+                  >
+                    <span
+                      draggable
+                      onDragStart={() => setDraggedSectionId(section.id)}
+                      onDragEnd={() => {
+                        setDraggedSectionId(null);
+                        setDragOverSectionId(null);
+                      }}
+                      className="shrink-0 cursor-grab select-none px-1 text-lg text-gray-300 hover:text-gray-500 active:cursor-grabbing"
+                      title="Drag to reorder"
+                      aria-hidden
+                    >
+                      ⠿
+                    </span>
                     <button
                       onClick={() => startEditSection(section)}
                       className={`flex flex-1 items-center justify-between rounded-xl p-2 text-left hover:bg-gray-50 ${

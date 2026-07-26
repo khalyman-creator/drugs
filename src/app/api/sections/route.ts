@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllSections, updateSection, createSection, deleteSection } from "@/lib/db/supabase-sections";
+import {
+  getAllSections,
+  updateSection,
+  createSection,
+  deleteSection,
+  reorderSections,
+} from "@/lib/db/supabase-sections";
 import { isAdminLoggedIn } from "@/lib/auth";
 
 export async function GET() {
@@ -38,6 +44,20 @@ export async function PUT(req: NextRequest) {
     is_active: body.is_active,
   });
   if (!updated) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json(updated);
+}
+
+export async function PATCH(req: NextRequest) {
+  if (!(await isAdminLoggedIn())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = await req.json();
+  if (!Array.isArray(body.orderedIds) || body.orderedIds.some((id: unknown) => typeof id !== "number")) {
+    return NextResponse.json({ error: "orderedIds must be an array of numbers" }, { status: 400 });
+  }
+
+  const updated = await reorderSections(body.orderedIds);
   return NextResponse.json(updated);
 }
 

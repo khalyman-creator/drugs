@@ -50,7 +50,7 @@ export async function createSection(name: string): Promise<Section> {
 
 export async function updateSection(
   id: number,
-  data: { name?: string; is_active?: boolean }
+  data: { name?: string; is_active?: boolean; sort_order?: number }
 ): Promise<Section | undefined> {
   const supabase = getSupabaseAdmin();
   const { data: updated, error } = await supabase
@@ -58,6 +58,7 @@ export async function updateSection(
     .update({
       ...(data.name != null ? { name: data.name } : {}),
       ...(data.is_active != null ? { is_active: data.is_active } : {}),
+      ...(data.sort_order != null ? { sort_order: data.sort_order } : {}),
     })
     .eq("id", id)
     .select("*")
@@ -65,6 +66,20 @@ export async function updateSection(
 
   if (error) throw error;
   return (updated as Section) ?? undefined;
+}
+
+// Persists a full drag-and-drop reorder in one go — each id gets the
+// sort_order matching its index in the array.
+export async function reorderSections(orderedIds: number[]): Promise<Section[]> {
+  const supabase = getSupabaseAdmin();
+  const updates = await Promise.all(
+    orderedIds.map((id, index) =>
+      supabase.from("sections").update({ sort_order: index + 1 }).eq("id", id).select("*").maybeSingle()
+    )
+  );
+  const firstError = updates.find((u) => u.error)?.error;
+  if (firstError) throw firstError;
+  return updates.map((u) => u.data as Section).filter(Boolean);
 }
 
 export async function deleteSection(
