@@ -26,7 +26,7 @@ export function ProductList({
           (p) => p.section_id === section.id && (!q || p.name.toLowerCase().includes(q))
         ),
       }))
-      .filter(({ items }) => items.length > 0);
+      .filter(({ items }) => items.length > 0 || !q);
   }, [sections, products, search]);
 
   async function toggleActive(product: Product) {
@@ -79,9 +79,17 @@ export function ProductList({
         )}
         {filteredSections.map(({ section, items }) => (
           <div key={section.id}>
-            <p className="bg-gray-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-              {section.name} ({items.length}){!section.is_active && " — Section Offline"}
-            </p>
+            <div className="flex items-center justify-between bg-gray-50 px-4 py-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                {section.name} ({items.length}){!section.is_active && " — Section Offline"}
+              </p>
+              <Link
+                href={`/admin/products/new?section=${section.id}`}
+                className="text-xs font-semibold text-brand-600 hover:underline"
+              >
+                + Add
+              </Link>
+            </div>
             <ul className="divide-y">
               {items.map((p) => (
                 <li key={p.id} className="flex items-center gap-3 p-4 hover:bg-gray-50">

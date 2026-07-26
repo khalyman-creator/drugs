@@ -34,6 +34,7 @@ export function ProductForm({
   pricingOptions,
   siteDefaults,
   productImages,
+  defaultSectionId,
 }: {
   mode: "create" | "edit";
   product?: Product;
@@ -41,6 +42,7 @@ export function ProductForm({
   pricingOptions?: ProductPricingOption[];
   siteDefaults?: SiteSettings;
   productImages?: ProductImage[];
+  defaultSectionId?: number;
 }) {
   const router = useRouter();
   const [current, setCurrent] = useState(product);
@@ -50,7 +52,7 @@ export function ProductForm({
     details: product?.details ?? "",
     image_url: product?.image_url ?? "",
     price: product?.price ?? 200,
-    section_id: product?.section_id ?? sections[0]?.id ?? 1,
+    section_id: product?.section_id ?? defaultSectionId ?? sections[0]?.id ?? 1,
     is_active: product?.is_active ?? true,
     allow_custom_quantity: product?.allow_custom_quantity ?? true,
   });
