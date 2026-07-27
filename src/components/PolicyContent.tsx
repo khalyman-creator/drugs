@@ -35,7 +35,7 @@ export function PolicyContent({ text }: { text: string }) {
     <div className="mt-8 space-y-4 text-gray-700">
       {blocks.map((block, i) =>
         block.type === "heading" ? (
-          <h2 key={i} className="font-display pt-4 text-lg font-bold text-gray-900 first:pt-0">
+          <h2 key={i} className="font-display pt-4 text-xl font-extrabold text-black first:pt-0">
             {block.text}
           </h2>
         ) : (
