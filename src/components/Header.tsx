@@ -21,8 +21,8 @@ export function Header({ storeName }: { storeName: string; tagline: string }) {
           <Link href="/contact" className="hidden text-sm font-bold uppercase tracking-wide text-gray-700 hover:text-brand-600 sm:inline">
             Contact
           </Link>
-          <SideMenu />
           <CartButton />
+          <SideMenu />
         </nav>
       </div>
       <div className="border-t border-gray-100 px-4 pb-3 sm:hidden">
