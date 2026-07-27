@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CartButton } from "./CartButton";
 import { HeaderSearch } from "./HeaderSearch";
+import { SideMenu } from "./SideMenu";
 
 export function Header({ storeName }: { storeName: string; tagline: string }) {
   return (
@@ -20,6 +21,7 @@ export function Header({ storeName }: { storeName: string; tagline: string }) {
           <Link href="/contact" className="hidden text-sm font-bold uppercase tracking-wide text-gray-700 hover:text-brand-600 sm:inline">
             Contact
           </Link>
+          <SideMenu />
           <CartButton />
         </nav>
       </div>

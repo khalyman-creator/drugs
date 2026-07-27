@@ -2,7 +2,6 @@ import Script from "next/script";
 import { CartProvider } from "@/components/CartProvider";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
-import { PolicyShortcuts } from "@/components/PolicyShortcuts";
 import { getSiteSettings } from "@/lib/db/supabase-settings";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
@@ -11,7 +10,6 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   return (
     <CartProvider>
       <Header storeName={settings.store_name} tagline={settings.tagline} />
-      <PolicyShortcuts />
       <main>{children}</main>
       <Footer settings={settings} />
       <Script id="tawk-to" strategy="afterInteractive">

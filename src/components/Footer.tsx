@@ -12,6 +12,7 @@ export function Footer({ settings }: { settings: SiteSettings }) {
           <Link href="/products" className="hover:text-brand-700">Shop</Link>
           <Link href="/cart" className="hover:text-brand-700">Cart</Link>
           <Link href="/contact" className="hover:text-brand-700">Contact</Link>
+          <Link href="/about" className="hover:text-brand-700">About</Link>
           <Link href="/shipping" className="hover:text-brand-700">Shipping</Link>
           <Link href="/refunds" className="hover:text-brand-700">Refunds</Link>
           <Link href="/privacy" className="hover:text-brand-700">Privacy</Link>
