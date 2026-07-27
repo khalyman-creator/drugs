@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { SiteSettings } from "@/lib/types";
 
 export function AboutSection({ settings }: { settings: SiteSettings }) {
@@ -8,7 +9,13 @@ export function AboutSection({ settings }: { settings: SiteSettings }) {
           {settings.about_title}
         </h2>
         <span className="accent-bar mx-auto" />
-        <p className="mt-6 text-lg leading-relaxed text-gray-400">{settings.about_text}</p>
+        <p className="mt-6 line-clamp-3 text-lg leading-relaxed text-gray-400">{settings.about_text}</p>
+        <Link
+          href="/about"
+          className="mt-4 inline-block text-sm font-bold uppercase tracking-wide text-brand-500 hover:text-brand-400"
+        >
+          Read More
+        </Link>
       </div>
     </section>
   );

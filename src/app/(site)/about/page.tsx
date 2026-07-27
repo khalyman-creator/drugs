@@ -15,7 +15,7 @@ export default async function AboutPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6">
-      <h1 className="font-display text-3xl uppercase tracking-tight text-gray-900 sm:text-4xl">
+      <h1 className="font-display text-3xl uppercase tracking-tight text-brand-600 sm:text-4xl">
         {settings.about_title}
       </h1>
       <span className="accent-bar" />
