@@ -1,13 +1,19 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { getSiteSettings } from "@/lib/db/supabase-settings";
 import { getSiteUrl } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSiteSettings();
   const siteUrl = getSiteUrl();
+  const shareImage = settings.hero_image_url || `${siteUrl}/logo.svg`;
 
   return {
     metadataBase: new URL(siteUrl),
@@ -23,13 +29,13 @@ export async function generateMetadata(): Promise<Metadata> {
       description: settings.tagline,
       url: siteUrl,
       type: "website",
-      images: settings.hero_image_url ? [{ url: settings.hero_image_url }] : undefined,
+      images: [{ url: shareImage }],
     },
     twitter: {
       card: "summary_large_image",
       title: settings.store_name,
       description: settings.tagline,
-      images: settings.hero_image_url ? [settings.hero_image_url] : undefined,
+      images: [shareImage],
     },
   };
 }

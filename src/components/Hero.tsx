@@ -26,7 +26,7 @@ export function Hero({ settings }: { settings: SiteSettings }) {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={settings.hero_image_url}
-              alt=""
+              alt={settings.hero_title}
               className="aspect-video w-full object-cover grayscale contrast-125"
             />
             <div className="pointer-events-none absolute inset-0 bg-brand-600 mix-blend-color" />

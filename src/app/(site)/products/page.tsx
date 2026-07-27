@@ -45,9 +45,31 @@ export default async function ProductsPage({
   for (const section of sections) for (const p of section.products) allIds.add(p.id);
   if (results) for (const p of results) allIds.add(p.id);
   const pricingOptionsByProduct = await getPricingOptionsForProducts(Array.from(allIds));
+  const siteUrl = getSiteUrl();
+
+  const itemListJsonLd = !query
+    ? {
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        itemListElement: sections
+          .flatMap((section) => section.products)
+          .map((product, index) => ({
+            "@type": "ListItem",
+            position: index + 1,
+            url: `${siteUrl}/product/${product.slug}`,
+            name: product.name,
+          })),
+      }
+    : null;
 
   return (
     <>
+      {itemListJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
+        />
+      )}
       <div className="border-b border-gray-200 bg-white py-10 text-center">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <h1 className="text-3xl font-bold text-gray-900">

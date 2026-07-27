@@ -3,12 +3,26 @@ import { CartProvider } from "@/components/CartProvider";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { getSiteSettings } from "@/lib/db/supabase-settings";
+import { getSiteUrl } from "@/lib/env";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const settings = await getSiteSettings();
+  const siteUrl = getSiteUrl();
+
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: settings.store_name,
+    url: siteUrl,
+    logo: `${siteUrl}/logo.svg`,
+  };
 
   return (
     <CartProvider>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
       <Header storeName={settings.store_name} tagline={settings.tagline} />
       <main>{children}</main>
       <Footer settings={settings} />
