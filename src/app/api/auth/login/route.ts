@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdmin } from "@/lib/db/supabase-admin-auth";
-import { getSessionCookieName, getSessionValue } from "@/lib/auth";
+import { createSessionToken, getSessionCookieName, getSessionMaxAgeSeconds } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   const { username, password } = await req.json();
@@ -14,11 +14,12 @@ export async function POST(req: NextRequest) {
   }
 
   const res = NextResponse.json({ success: true });
-  res.cookies.set(getSessionCookieName(), getSessionValue(), {
+  res.cookies.set(getSessionCookieName(), createSessionToken(), {
     httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: getSessionMaxAgeSeconds(),
   });
   return res;
 }
