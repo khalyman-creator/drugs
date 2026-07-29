@@ -94,7 +94,11 @@ export async function createOrderRecord(input: {
     .insert(itemRows)
     .select("*");
 
-  if (itemsError) throw itemsError;
+  if (itemsError) {
+    // Compensating delete — don't leave a "pending" order with no items behind.
+    await supabase.from("orders").delete().eq("id", order.id);
+    throw itemsError;
+  }
 
   return {
     ...(order as OrderRecord),

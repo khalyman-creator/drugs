@@ -16,6 +16,15 @@ export type RawCheckoutItem = {
   variantLabel?: string;
 };
 
+export class UnavailableItemError extends Error {
+  productId: number;
+
+  constructor(productId: number, name?: string) {
+    super(name ? `${name} is no longer available` : `Product ${productId} is no longer available`);
+    this.productId = productId;
+  }
+}
+
 export function parseRawCheckoutItems(raw: unknown): RawCheckoutItem[] | null {
   if (!Array.isArray(raw) || raw.length === 0) return null;
 
@@ -36,7 +45,7 @@ export function parseRawCheckoutItems(raw: unknown): RawCheckoutItem[] | null {
         ? (entry as { quantity: number }).quantity
         : 1;
 
-    if (productId == null || quantity < 1 || quantity > 99) {
+    if (productId == null || !Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
       return null;
     }
 
@@ -78,7 +87,7 @@ async function resolveVariantPrice(
 
   const active = getActiveOptions(options);
   if (active.length === 0) {
-    throw new Error(`Product ${product.id} is no longer available`);
+    throw new UnavailableItemError(product.id, product.name);
   }
   return { variantLabel: active[0].label, unitPrice: active[0].price };
 }
@@ -91,20 +100,21 @@ export async function lockOrderItemsFromCatalog(
   for (const item of rawItems) {
     const product = await getProductById(item.productId);
     if (!product) {
-      throw new Error(`Product ${item.productId} is no longer available`);
+      throw new UnavailableItemError(item.productId);
     }
 
     const section = await getSectionById(product.section_id);
     if (!product.is_active || !section?.is_active) {
-      throw new Error(`Product ${item.productId} is no longer available`);
+      throw new UnavailableItemError(product.id, product.name);
     }
 
     let variantLabel: string;
     let unitPrice: number;
     try {
       ({ variantLabel, unitPrice } = await resolveVariantPrice(product, item));
-    } catch {
-      throw new Error(`Product ${item.productId} is no longer available`);
+    } catch (err) {
+      if (err instanceof UnavailableItemError) throw err;
+      throw new UnavailableItemError(product.id, product.name);
     }
 
     locked.push({

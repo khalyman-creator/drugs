@@ -2,7 +2,9 @@ import { getOrderById } from "@/lib/db/supabase-orders";
 import {
   findPaymentByOrderId,
   updatePaymentRecord,
+  type PaymentRecord,
 } from "@/lib/db/supabase-payments";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { getAdminEmail } from "@/lib/env";
 import {
   buildAdminOrderNotificationHtml,
@@ -12,24 +14,49 @@ import {
 import { formatOrderReference } from "./order-ref";
 import { isEmailConfigured, sendEmail } from "./resend";
 
-async function markEmailSent(
-  orderId: string,
-  field: "invoice_email_sent_at" | "receipt_email_sent_at" | "admin_notified_at"
+type EmailField = "invoice_email_sent_at" | "receipt_email_sent_at" | "admin_notified_at";
+
+/**
+ * Atomically claims the right to send this email — the WHERE guard is
+ * evaluated by Postgres against the row's live state at UPDATE time, so
+ * concurrent callers (e.g. a webhook retry racing the /success page) can
+ * never both win the claim, even though they may both have read a stale
+ * "not sent yet" snapshot moments earlier.
+ */
+async function claimEmailSend(
+  payment: PaymentRecord,
+  field: EmailField
 ): Promise<boolean> {
-  const payment = await findPaymentByOrderId(orderId);
-  if (!payment) return false;
+  if (payment.metadata?.[field]) return false;
 
-  const metadata = payment.metadata ?? {};
-  if (metadata[field]) return false;
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("payments")
+    .update({
+      metadata: { ...(payment.metadata ?? {}), [field]: new Date().toISOString() },
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", payment.id)
+    .is(`metadata->>${field}`, null)
+    .select("id")
+    .maybeSingle();
 
-  await updatePaymentRecord(payment.id, {
-    metadata: {
-      ...metadata,
-      [field]: new Date().toISOString(),
-    },
-  });
+  if (error) throw error;
+  return data != null;
+}
 
-  return true;
+/** Releases a claim after a send actually fails, so a later retry can try again. */
+async function releaseEmailClaim(paymentId: string, field: EmailField): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { data } = await supabase
+    .from("payments")
+    .select("metadata")
+    .eq("id", paymentId)
+    .maybeSingle();
+
+  const metadata = { ...(data?.metadata ?? {}) };
+  delete metadata[field];
+  await updatePaymentRecord(paymentId, { metadata });
 }
 
 export async function sendOrderInvoiceEmail(input: {
@@ -47,7 +74,12 @@ export async function sendOrderInvoiceEmail(input: {
   }
 
   const payment = await findPaymentByOrderId(input.orderId);
-  if (payment?.metadata?.invoice_email_sent_at) {
+  if (!payment) {
+    return { sent: false, error: "Payment record not found" };
+  }
+
+  const claimed = await claimEmailSend(payment, "invoice_email_sent_at");
+  if (!claimed) {
     return { sent: false, error: "Invoice already sent" };
   }
 
@@ -66,10 +98,10 @@ export async function sendOrderInvoiceEmail(input: {
   });
 
   if (!result.ok) {
+    await releaseEmailClaim(payment.id, "invoice_email_sent_at");
     return { sent: false, error: result.error };
   }
 
-  await markEmailSent(input.orderId, "invoice_email_sent_at");
   return { sent: true };
 }
 
@@ -87,7 +119,12 @@ export async function sendAdminOrderNotification(
   }
 
   const payment = await findPaymentByOrderId(orderId);
-  if (payment?.metadata?.admin_notified_at) {
+  if (!payment) {
+    return { sent: false, error: "Payment record not found" };
+  }
+
+  const claimed = await claimEmailSend(payment, "admin_notified_at");
+  if (!claimed) {
     return { sent: false, error: "Admin already notified" };
   }
 
@@ -102,10 +139,10 @@ export async function sendAdminOrderNotification(
   });
 
   if (!result.ok) {
+    await releaseEmailClaim(payment.id, "admin_notified_at");
     return { sent: false, error: result.error };
   }
 
-  await markEmailSent(orderId, "admin_notified_at");
   return { sent: true };
 }
 
@@ -128,14 +165,19 @@ export async function sendOrderReceiptEmail(input: {
   }
 
   const payment = await findPaymentByOrderId(input.orderId);
-  if (payment?.metadata?.receipt_email_sent_at) {
+  if (!payment) {
+    return { sent: false, error: "Payment record not found" };
+  }
+
+  const claimed = await claimEmailSend(payment, "receipt_email_sent_at");
+  if (!claimed) {
     return { sent: false, error: "Receipt already sent" };
   }
 
   const orderRef = formatOrderReference(order.id);
   const html = buildReceiptEmailHtml({
     order,
-    transactionId: input.transactionId ?? payment?.provider_payment_id ?? undefined,
+    transactionId: input.transactionId ?? payment.provider_payment_id ?? undefined,
     paidAt: input.paidAt,
   });
 
@@ -147,10 +189,10 @@ export async function sendOrderReceiptEmail(input: {
   });
 
   if (!result.ok) {
+    await releaseEmailClaim(payment.id, "receipt_email_sent_at");
     return { sent: false, error: result.error };
   }
 
-  await markEmailSent(input.orderId, "receipt_email_sent_at");
   return { sent: true };
 }
 
