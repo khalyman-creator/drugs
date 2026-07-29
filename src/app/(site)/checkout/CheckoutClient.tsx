@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCart } from "@/components/CartProvider";
@@ -14,13 +14,14 @@ const SHIPPING_OPTIONS = {
 type ShippingMethod = keyof typeof SHIPPING_OPTIONS;
 
 export default function CheckoutClient() {
-  const { cart, clearCart, hydrated } = useCart();
+  const { cart, clearCart, removeItem, hydrated } = useCart();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [checkoutReady, setCheckoutReady] = useState<boolean | null>(null);
   const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("standard");
+  const submitInFlight = useRef(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -94,6 +95,10 @@ export default function CheckoutClient() {
       return;
     }
 
+    // Guard with a ref, not just state — a fast double-click can fire twice
+    // before React re-renders the disabled button.
+    if (submitInFlight.current) return;
+    submitInFlight.current = true;
     setLoading(true);
 
     try {
@@ -113,7 +118,16 @@ export default function CheckoutClient() {
 
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Checkout failed");
+        if (typeof data.unavailableProductId === "number") {
+          const stale = cart.items.filter((i) => i.product_id === data.unavailableProductId);
+          stale.forEach((i) => removeItem(i.lineKey));
+          setError(
+            `${data.error || "That item is no longer available"} — it's been removed from your cart. Please review and try again.`
+          );
+        } else {
+          setError(data.error || "Checkout failed");
+        }
+        submitInFlight.current = false;
         setLoading(false);
         return;
       }
@@ -129,6 +143,7 @@ export default function CheckoutClient() {
       router.push(`/success?orderId=${encodeURIComponent(data.orderId)}`);
     } catch {
       setError("Something went wrong. Try again.");
+      submitInFlight.current = false;
       setLoading(false);
     }
   }

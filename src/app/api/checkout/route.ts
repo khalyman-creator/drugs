@@ -3,6 +3,7 @@ import { processCheckout } from "@/lib/checkout/service";
 import {
   lockOrderItemsFromCatalog,
   parseRawCheckoutItems,
+  UnavailableItemError,
 } from "@/lib/checkout/validate-items";
 
 const ALLOWED_SHIPPING = [10, 20] as const;
@@ -80,6 +81,10 @@ export async function POST(req: Request) {
             validationError instanceof Error
               ? validationError.message
               : "Invalid order items",
+          unavailableProductId:
+            validationError instanceof UnavailableItemError
+              ? validationError.productId
+              : undefined,
         },
         { status: 400 }
       );

@@ -63,23 +63,36 @@ export function replaceCartWithItem(item: Omit<CartItem, "quantity"> & { quantit
 
 export const CART_STORAGE_KEY = "local-shop-cart";
 
-/** Migrate old cart items missing lineKey / variant fields */
+/** Migrate old/corrupted cart items missing fields — never let a bad
+ * localStorage entry render as "$NaN" or crash the cart/checkout page. */
 export function normalizeCart(raw: unknown): Cart {
   if (!raw || typeof raw !== "object" || !Array.isArray((raw as Cart).items)) {
     return { items: [] };
   }
 
-  return {
-    items: (raw as Cart).items.map((item) => {
+  const items = (raw as Cart).items
+    .filter((item) => item && typeof item.product_id === "number")
+    .map((item) => {
       const variant = item.variant_label ?? `${item.quantity ?? 1} unit(s)`;
       const lineKey = item.lineKey ?? makeLineKey(item.product_id, variant);
+      const quantity =
+        typeof item.quantity === "number" && Number.isFinite(item.quantity) && item.quantity > 0
+          ? item.quantity
+          : 1;
+      const price = typeof item.price === "number" && Number.isFinite(item.price) ? item.price : 0;
+
       return {
         ...item,
         lineKey,
         variant_label: variant,
         section_id: item.section_id ?? 9,
-        quantity: item.quantity ?? 1,
+        quantity,
+        price,
+        name: item.name || "Unknown item",
+        image_url: item.image_url || "",
+        slug: item.slug || "",
       };
-    }),
-  };
+    });
+
+  return { items };
 }

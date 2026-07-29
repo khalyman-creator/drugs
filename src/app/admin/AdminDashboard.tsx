@@ -54,6 +54,7 @@ export function AdminDashboard({
   const [sectionDeleteArmed, setSectionDeleteArmed] = useState(false);
   const [togglingSectionId, setTogglingSectionId] = useState<number | null>(null);
   const [draggedSectionId, setDraggedSectionId] = useState<number | null>(null);
+  const [reorderingSections, setReorderingSections] = useState(false);
   const [dragOverSectionId, setDragOverSectionId] = useState<number | null>(null);
 
   async function handleLogout() {
@@ -77,6 +78,7 @@ export function AdminDashboard({
   }
 
   async function handleDeleteReview(id: number) {
+    if (!confirm("Delete this review? This can't be undone.")) return;
     setReviewActionId(id);
     const res = await fetch(`/api/reviews/${id}`, { method: "DELETE" });
     if (res.ok) {
@@ -190,21 +192,26 @@ export function AdminDashboard({
   }
 
   async function persistSectionOrder(ordered: Section[]) {
-    const res = await fetch("/api/sections", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderedIds: ordered.map((s) => s.id) }),
-    });
-    if (res.ok) {
-      const updated: Section[] = await res.json();
-      setSections((prev) =>
-        prev
-          .map((s) => updated.find((u) => u.id === s.id) ?? s)
-          .sort((a, b) => a.sort_order - b.sort_order)
-      );
-      router.refresh();
-    } else {
-      setMessage("Failed to save new section order");
+    setReorderingSections(true);
+    try {
+      const res = await fetch("/api/sections", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderedIds: ordered.map((s) => s.id) }),
+      });
+      if (res.ok) {
+        const updated: Section[] = await res.json();
+        setSections((prev) =>
+          prev
+            .map((s) => updated.find((u) => u.id === s.id) ?? s)
+            .sort((a, b) => a.sort_order - b.sort_order)
+        );
+        router.refresh();
+      } else {
+        setMessage("Failed to save new section order");
+      }
+    } finally {
+      setReorderingSections(false);
     }
   }
 
@@ -212,7 +219,7 @@ export function AdminDashboard({
     const fromId = draggedSectionId;
     setDraggedSectionId(null);
     setDragOverSectionId(null);
-    if (fromId == null || fromId === targetId) return;
+    if (fromId == null || fromId === targetId || reorderingSections) return;
 
     const fromIndex = sections.findIndex((s) => s.id === fromId);
     const toIndex = sections.findIndex((s) => s.id === targetId);
@@ -895,13 +902,15 @@ export function AdminDashboard({
                     }`}
                   >
                     <span
-                      draggable
+                      draggable={!reorderingSections}
                       onDragStart={() => setDraggedSectionId(section.id)}
                       onDragEnd={() => {
                         setDraggedSectionId(null);
                         setDragOverSectionId(null);
                       }}
-                      className="shrink-0 cursor-grab select-none px-1 text-lg text-gray-300 hover:text-gray-500 active:cursor-grabbing"
+                      className={`shrink-0 select-none px-1 text-lg text-gray-300 hover:text-gray-500 ${
+                        reorderingSections ? "cursor-not-allowed opacity-50" : "cursor-grab active:cursor-grabbing"
+                      }`}
                       title="Drag to reorder"
                       aria-hidden
                     >

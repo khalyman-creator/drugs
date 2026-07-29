@@ -53,7 +53,7 @@ export default function CartPage() {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={item.image_url}
+              src={item.image_url || "/placeholder.svg"}
               alt={item.name}
               className="h-24 w-24 rounded-xl object-cover"
             />
