@@ -17,7 +17,7 @@ export async function sendContactMessage(input: {
 
   const result = await sendEmail({
     to: getAdminEmail(),
-    subject: `[RawDrop Contact] ${input.subject}`,
+    subject: `[SilkFreedom Contact] ${input.subject}`,
     html,
     replyTo: input.email,
   });

@@ -11,7 +11,11 @@ import {
   updatePaymentRecord,
 } from "@/lib/db/supabase-payments";
 import { isSupabaseConfigured } from "@/lib/env";
-import { ensureOrderReceiptEmail, sendOrderInvoiceEmail } from "@/lib/email/send-order-emails";
+import {
+  ensureOrderReceiptEmail,
+  sendAdminOrderNotification,
+  sendOrderInvoiceEmail,
+} from "@/lib/email/send-order-emails";
 import { createCheckoutPayment } from "@/lib/payments";
 import type { CheckoutCustomerInput, CheckoutResult } from "./types";
 
@@ -95,6 +99,10 @@ export async function processCheckout(input: {
     transactionId: payment.transactionId,
   }).catch((err) => {
     console.error("[checkout] Invoice email failed:", err);
+  });
+
+  sendAdminOrderNotification(order.id).catch((err) => {
+    console.error("[checkout] Admin notification email failed:", err);
   });
 
   return {

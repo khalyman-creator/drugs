@@ -17,6 +17,6 @@ export async function GET() {
     nowpaymentsConfigured,
     nowpaymentsWebhookConfigured: isNowPaymentsWebhookConfigured(),
     siteUrl: getSiteUrl(),
-    brand: "RawDrop",
+    brand: "SilkFreedom",
   });
 }

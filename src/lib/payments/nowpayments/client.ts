@@ -112,7 +112,7 @@ export async function createNowPaymentsInvoice(input: {
     price_amount: input.amount,
     price_currency: (input.currency ?? "USD").toLowerCase(),
     order_id: input.orderId,
-    order_description: `RawDrop order ${input.orderId}`,
+    order_description: `SilkFreedom order ${input.orderId}`,
     ipn_callback_url: input.callbackUrl,
     success_url: input.successUrl,
     cancel_url: input.cancelUrl,

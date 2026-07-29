@@ -3,8 +3,8 @@ import type { OrderItemRecord, OrderWithDetails } from "@/lib/db/supabase-orders
 import { escapeHtml } from "./escape-html";
 import { formatEmailDate, formatOrderReference } from "./order-ref";
 
-const BRAND = "#16a34a";
-const BRAND_DARK = "#15803d";
+const BRAND = "#dc2626";
+const BRAND_DARK = "#b91c1c";
 
 type LineItem = Pick<OrderItemRecord, "name" | "quantity" | "price" | "category">;
 
@@ -78,8 +78,8 @@ function emailShell(input: {
               <table width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td>
-                    <div style="color:#ffffff;font-size:26px;font-weight:800;letter-spacing:-0.02em;">RawDrop</div>
-                    <div style="color:#dcfce7;font-size:13px;margin-top:4px;">Official order documentation</div>
+                    <div style="color:#ffffff;font-size:26px;font-weight:800;letter-spacing:-0.02em;">SilkFreedom</div>
+                    <div style="color:#fee2e2;font-size:13px;margin-top:4px;">Official order documentation</div>
                   </td>
                   <td align="right">
                     <span style="display:inline-block;background:${input.badgeColor};color:#ffffff;font-size:11px;font-weight:700;padding:6px 12px;border-radius:999px;text-transform:uppercase;letter-spacing:0.08em;">${escapeHtml(input.badge)}</span>
@@ -98,7 +98,7 @@ function emailShell(input: {
           <tr>
             <td style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb;">
               <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.6;text-align:center;">
-                RawDrop · Secure crypto checkout via NOWPayments<br />
+                SilkFreedom · Secure crypto checkout via NOWPayments<br />
                 Questions? Reply to this email or visit our contact page.
               </p>
             </td>
@@ -170,6 +170,65 @@ export function buildInvoiceEmailHtml(input: {
     title: "Invoice",
     badge: "Invoice",
     badgeColor: "#b45309",
+    body,
+    orderRef,
+  });
+}
+
+export function buildAdminOrderNotificationHtml(input: {
+  order: OrderWithDetails;
+}): string {
+  const order = input.order;
+  const customer = order.customer;
+  const orderRef = formatOrderReference(order.id);
+  const date = formatEmailDate(order.created_at);
+
+  const body = `
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px 20px;margin-bottom:24px;text-align:center;">
+      <div style="font-size:18px;font-weight:700;color:#991b1b;">New order placed</div>
+      <div style="font-size:14px;color:#b91c1c;margin-top:4px;">Awaiting crypto payment confirmation — don't fulfill yet.</div>
+    </div>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:24px;">
+      <tr>
+        <td style="padding:16px 20px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="width:50%;vertical-align:top;">
+                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Customer</div>
+                <div style="font-size:15px;font-weight:600;color:#111827;">${escapeHtml(customer?.full_name ?? "Customer")}</div>
+                <div style="font-size:14px;color:#374151;margin-top:4px;">${escapeHtml(customer?.email ?? "")}</div>
+                ${customer?.phone ? `<div style="font-size:14px;color:#374151;margin-top:2px;">${escapeHtml(customer.phone)}</div>` : ""}
+              </td>
+              <td style="width:50%;vertical-align:top;text-align:right;">
+                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Order Date</div>
+                <div style="font-size:14px;color:#111827;">${escapeHtml(date)}</div>
+                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-top:12px;margin-bottom:4px;">Status</div>
+                <div style="font-size:14px;color:#b45309;font-weight:600;">Payment Pending</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    ${customer?.shipping_address ? `
+    <p style="margin:0 0 20px;color:#374151;font-size:14px;">
+      <strong style="color:#111827;">Ship to:</strong><br />
+      ${escapeHtml(customer.shipping_address)}
+    </p>` : ""}
+
+    ${lineItemsTable(order.items)}
+    ${totalsBlock(Number(order.subtotal), Number(order.shipping), Number(order.total))}
+
+    <p style="margin:24px 0 0;color:#6b7280;font-size:13px;line-height:1.6;text-align:center;">
+      You'll get a second email once payment actually clears — that's when it's safe to ship.
+    </p>`;
+
+  return emailShell({
+    title: "New Order",
+    badge: "New Order",
+    badgeColor: "#991b1b",
     body,
     orderRef,
   });

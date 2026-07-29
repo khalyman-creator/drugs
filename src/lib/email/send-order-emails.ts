@@ -4,13 +4,17 @@ import {
   updatePaymentRecord,
 } from "@/lib/db/supabase-payments";
 import { getAdminEmail } from "@/lib/env";
-import { buildInvoiceEmailHtml, buildReceiptEmailHtml } from "./order-templates";
+import {
+  buildAdminOrderNotificationHtml,
+  buildInvoiceEmailHtml,
+  buildReceiptEmailHtml,
+} from "./order-templates";
 import { formatOrderReference } from "./order-ref";
 import { isEmailConfigured, sendEmail } from "./resend";
 
 async function markEmailSent(
   orderId: string,
-  field: "invoice_email_sent_at" | "receipt_email_sent_at"
+  field: "invoice_email_sent_at" | "receipt_email_sent_at" | "admin_notified_at"
 ): Promise<boolean> {
   const payment = await findPaymentByOrderId(orderId);
   if (!payment) return false;
@@ -56,7 +60,7 @@ export async function sendOrderInvoiceEmail(input: {
 
   const result = await sendEmail({
     to: order.customer.email,
-    subject: `RawDrop Invoice ${orderRef} — ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(order.total))} due`,
+    subject: `SilkFreedom Invoice ${orderRef} — ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(order.total))} due`,
     html,
     replyTo: getAdminEmail(),
   });
@@ -66,6 +70,42 @@ export async function sendOrderInvoiceEmail(input: {
   }
 
   await markEmailSent(input.orderId, "invoice_email_sent_at");
+  return { sent: true };
+}
+
+/** Notify the seller that a new order was placed (fires before payment confirms). */
+export async function sendAdminOrderNotification(
+  orderId: string
+): Promise<{ sent: boolean; error?: string }> {
+  if (!isEmailConfigured()) {
+    return { sent: false, error: "RESEND_API_KEY not configured" };
+  }
+
+  const order = await getOrderById(orderId);
+  if (!order) {
+    return { sent: false, error: "Order not found" };
+  }
+
+  const payment = await findPaymentByOrderId(orderId);
+  if (payment?.metadata?.admin_notified_at) {
+    return { sent: false, error: "Admin already notified" };
+  }
+
+  const orderRef = formatOrderReference(order.id);
+  const html = buildAdminOrderNotificationHtml({ order });
+
+  const result = await sendEmail({
+    to: getAdminEmail(),
+    subject: `New order ${orderRef} — ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(Number(order.total))}`,
+    html,
+    replyTo: order.customer?.email,
+  });
+
+  if (!result.ok) {
+    return { sent: false, error: result.error };
+  }
+
+  await markEmailSent(orderId, "admin_notified_at");
   return { sent: true };
 }
 
@@ -101,7 +141,7 @@ export async function sendOrderReceiptEmail(input: {
 
   const result = await sendEmail({
     to: order.customer.email,
-    subject: `RawDrop Receipt ${orderRef} — Payment confirmed`,
+    subject: `SilkFreedom Receipt ${orderRef} — Payment confirmed`,
     html,
     replyTo: getAdminEmail(),
   });
