@@ -4,6 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Product, Review, Section, SiteSettings } from "@/lib/types";
+import {
+  CONTROL_STATUSES,
+  CONTROL_LABELS,
+  PROCESSING_STATUSES,
+  PROCESSING_LABELS,
+} from "@/lib/shipping-status";
 
 type OrderRow = {
   id: string;
@@ -25,7 +31,7 @@ export function AdminDashboard({
   products,
   sections: initialSections,
   settings: initialSettings,
-  orders,
+  orders: initialOrders,
   reviews: initialReviews,
 }: {
   products: Product[];
@@ -50,6 +56,9 @@ export function AdminDashboard({
   const [reviews, setReviews] = useState(initialReviews);
   const [reviewActionId, setReviewActionId] = useState<number | null>(null);
 
+  const [orders, setOrders] = useState(initialOrders);
+  const [savingOrderField, setSavingOrderField] = useState<string | null>(null);
+
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [creatingSection, setCreatingSection] = useState(false);
   const [sectionName, setSectionName] = useState("");
@@ -64,6 +73,29 @@ export function AdminDashboard({
     await fetch("/api/auth/login", { method: "DELETE" });
     router.push("/admin/login");
     router.refresh();
+  }
+
+  async function handleOrderStatusChange(
+    orderId: string,
+    field: "control-status" | "processing-status",
+    bodyKey: "control_status" | "processing_status",
+    value: string
+  ) {
+    const fieldKey = `${orderId}:${field}`;
+    setSavingOrderField(fieldKey);
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}/${field}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [bodyKey]: value }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...updated } : o)));
+      }
+    } finally {
+      setSavingOrderField(null);
+    }
   }
 
   async function handleApproveReview(id: number, approved: boolean) {
@@ -1082,26 +1114,68 @@ export function AdminDashboard({
                     <th className="p-4 font-medium">Order</th>
                     <th className="p-4 font-medium">Customer</th>
                     <th className="p-4 font-medium">Total</th>
-                    <th className="p-4 font-medium">Status</th>
+                    <th className="p-4 font-medium">Control Status</th>
+                    <th className="p-4 font-medium">Processing</th>
                     <th className="p-4 font-medium"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
                   {orders.map((o) => (
                     <tr key={o.id} className="hover:bg-gray-50">
-                      <td className="p-4 font-mono text-xs">{o.order_number}</td>
+                      <td className="p-4">
+                        <p className="font-mono text-xs">{o.order_number}</p>
+                        <p className="mt-0.5 text-xs capitalize text-gray-400">{o.status}</p>
+                      </td>
                       <td className="p-4">
                         <p>{o.customer_name}</p>
                         <p className="text-xs text-gray-400">{o.customer_email}</p>
                       </td>
                       <td className="p-4">{o.totalFormatted}</td>
                       <td className="p-4">
-                        <span className="capitalize">{o.status}</span>
-                        {o.control_status !== "active" && (
-                          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold capitalize text-amber-800">
-                            {o.control_status.replace("_", " ")}
-                          </span>
-                        )}
+                        <select
+                          value={o.control_status}
+                          disabled={savingOrderField === `${o.id}:control-status`}
+                          onChange={(e) =>
+                            handleOrderStatusChange(
+                              o.id,
+                              "control-status",
+                              "control_status",
+                              e.target.value
+                            )
+                          }
+                          className={`rounded-lg border px-2 py-1.5 text-xs font-semibold disabled:opacity-60 ${
+                            o.control_status !== "active"
+                              ? "border-amber-200 bg-amber-50 text-amber-800"
+                              : "border-gray-200 bg-white text-gray-700"
+                          }`}
+                        >
+                          {CONTROL_STATUSES.map((s) => (
+                            <option key={s} value={s}>
+                              {CONTROL_LABELS[s]}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="p-4">
+                        <select
+                          value={o.processing_status}
+                          disabled={savingOrderField === `${o.id}:processing-status`}
+                          onChange={(e) =>
+                            handleOrderStatusChange(
+                              o.id,
+                              "processing-status",
+                              "processing_status",
+                              e.target.value
+                            )
+                          }
+                          className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 disabled:opacity-60"
+                        >
+                          {PROCESSING_STATUSES.map((s) => (
+                            <option key={s} value={s}>
+                              {PROCESSING_LABELS[s]}
+                            </option>
+                          ))}
+                        </select>
                       </td>
                       <td className="p-4">
                         <Link
