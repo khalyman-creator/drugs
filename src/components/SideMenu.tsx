@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import type { Section } from "@/lib/types";
 
 const INFO_LINKS = [
-  { href: "/track-order", label: "Track Order" },
   { href: "/about", label: "About Us" },
   { href: "/shipping", label: "Shipping Policy" },
   { href: "/refunds", label: "Refund Policy" },
@@ -86,6 +85,19 @@ export function SideMenu({ sections = [] }: { sections?: Section[] }) {
                 <div className="mx-5 border-t border-gray-100" />
               </>
             )}
+
+            <ul className="p-3">
+              <li>
+                <Link
+                  href="/track-order"
+                  onClick={() => setOpen(false)}
+                  className="block rounded-lg px-3 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-brand-600"
+                >
+                  Track Order
+                </Link>
+              </li>
+            </ul>
+            <div className="mx-5 border-t border-gray-100" />
 
             <p className="px-5 pt-4 text-[11px] font-bold uppercase tracking-wide text-gray-400">
               About &amp; Policies
