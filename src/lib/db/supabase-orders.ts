@@ -111,6 +111,66 @@ export async function createOrderRecord(input: {
   };
 }
 
+const RETRY_WINDOW_MS = 30 * 60 * 1000;
+
+function itemSetsMatch(existing: OrderItemRecord[], incoming: CreateOrderItemInput[]): boolean {
+  if (existing.length !== incoming.length) return false;
+  const key = (productId: number, price: number, quantity: number) => `${productId}:${price}:${quantity}`;
+  const existingKeys = existing
+    .map((i) => key(i.product_id, Number(i.price), i.quantity))
+    .sort();
+  const incomingKeys = incoming
+    .map((i) => key(i.productId, i.price, i.quantity))
+    .sort();
+  return existingKeys.every((k, idx) => k === incomingKeys[idx]);
+}
+
+/**
+ * Finds a still-pending order placed by this email in the last 30 minutes
+ * with the exact same cart contents — a double-click or a reload-and-resubmit
+ * of the same checkout, not a deliberate new purchase. Used to avoid creating
+ * duplicate orders/payments on retry (see processCheckout).
+ */
+export async function findRecentPendingOrderForRetry(input: {
+  email: string;
+  items: CreateOrderItemInput[];
+}): Promise<OrderWithDetails | null> {
+  const supabase = getSupabaseAdmin();
+
+  const { data: customers, error: customerError } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("email", input.email);
+  if (customerError) throw customerError;
+
+  const customerIds = (customers ?? []).map((c) => (c as { id: string }).id);
+  if (customerIds.length === 0) return null;
+
+  const since = new Date(Date.now() - RETRY_WINDOW_MS).toISOString();
+  const { data: orders, error } = await supabase
+    .from("orders")
+    .select("*")
+    .in("customer_id", customerIds)
+    .eq("status", "pending")
+    .gte("created_at", since)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+
+  for (const order of (orders ?? []) as OrderRecord[]) {
+    const { data: items, error: itemsError } = await supabase
+      .from("order_items")
+      .select("*")
+      .eq("order_id", order.id);
+    if (itemsError) throw itemsError;
+
+    if (itemSetsMatch(items as OrderItemRecord[], input.items)) {
+      return { ...order, customer: null, items: items as OrderItemRecord[] };
+    }
+  }
+
+  return null;
+}
+
 export async function getOrderById(id: string): Promise<OrderWithDetails | null> {
   const supabase = getSupabaseAdmin();
 

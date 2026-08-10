@@ -2,6 +2,7 @@ import { createCustomer } from "@/lib/db/supabase-customers";
 import {
   createOrderRecord,
   failOrderIfUnpaid,
+  findRecentPendingOrderForRetry,
   finalizeOrderPaid,
   getOrderById,
   type CreateOrderItemInput,
@@ -69,6 +70,42 @@ export async function processCheckout(input: {
 
   if (total < MIN_CHECKOUT_USD) {
     throw new Error(`Minimum order amount is $${MIN_CHECKOUT_USD}`);
+  }
+
+  // Idempotency: a double-click on Pay Now, or a reload-and-resubmit of the
+  // same checkout, must not create a second order. If this exact cart was
+  // just submitted by this email and is still awaiting payment, reuse that
+  // order (and its already-idempotent payment session) instead.
+  const retryOrder = await findRecentPendingOrderForRetry({
+    email: input.customer.email,
+    items: input.items,
+  });
+
+  if (retryOrder) {
+    const payment = await createCheckoutPayment({
+      orderId: retryOrder.id,
+      amount: Number(retryOrder.total),
+      customerEmail: input.customer.email,
+    });
+
+    if (!payment.paymentUrl) {
+      throw new Error("Could not create payment session");
+    }
+
+    return {
+      orderId: retryOrder.id,
+      total: Number(retryOrder.total),
+      subtotal: Number(retryOrder.subtotal),
+      shipping: Number(retryOrder.shipping),
+      status: retryOrder.status,
+      redirectUrl: payment.paymentUrl,
+      payment: {
+        provider: payment.provider,
+        status: payment.status,
+        paymentUrl: payment.paymentUrl,
+        transactionId: payment.transactionId,
+      },
+    };
   }
 
   const customer = await createCustomer({
