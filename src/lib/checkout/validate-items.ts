@@ -70,9 +70,10 @@ async function resolveVariantPrice(
   const mode = getPricingMode(product.section_id);
 
   if (mode === "standard") {
+    const onSale = product.sale_price != null && product.sale_price < product.price;
     return {
       variantLabel: item.variantLabel ?? `${item.quantity} unit(s)`,
-      unitPrice: product.price,
+      unitPrice: onSale ? product.sale_price! : product.price,
     };
   }
 

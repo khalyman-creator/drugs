@@ -397,6 +397,45 @@ export function AdminDashboard({
           <form
             onSubmit={(e) =>
               saveFields(
+                "announcement",
+                {
+                  announcement_enabled: settings.announcement_enabled,
+                  announcement_messages: settings.announcement_messages,
+                },
+                e
+              )
+            }
+            className="space-y-4 rounded-2xl border bg-white p-6"
+          >
+            <fieldset className="space-y-4">
+            <legend className="font-medium text-brand-800">Announcement Bar</legend>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={settings.announcement_enabled}
+                onChange={(e) => setSettings({ ...settings, announcement_enabled: e.target.checked })}
+                className="h-4 w-4 accent-brand-600"
+              />
+              Show announcement bar above the header
+            </label>
+            <div>
+              <label className="mb-1 block text-sm font-medium">
+                Messages (one per line — rotates automatically)
+              </label>
+              <textarea
+                value={settings.announcement_messages}
+                onChange={(e) => setSettings({ ...settings, announcement_messages: e.target.value })}
+                rows={4}
+                className="w-full rounded-xl border px-4 py-2.5"
+              />
+            </div>
+            </fieldset>
+            {saveRow("announcement")}
+          </form>
+
+          <form
+            onSubmit={(e) =>
+              saveFields(
                 "header",
                 {
                   store_name: settings.store_name,

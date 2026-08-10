@@ -101,6 +101,8 @@ export async function createProduct(data: {
   section_id: number;
   is_active?: boolean;
   allow_custom_quantity?: boolean;
+  is_featured?: boolean;
+  sale_price?: number | null;
 }): Promise<Product> {
   const supabase = getSupabaseAdmin();
 
@@ -115,6 +117,8 @@ export async function createProduct(data: {
       section_id: data.section_id,
       is_active: data.is_active ?? true,
       allow_custom_quantity: data.allow_custom_quantity ?? true,
+      is_featured: data.is_featured ?? false,
+      sale_price: data.sale_price ?? null,
     })
     .select("*")
     .single();
@@ -144,6 +148,8 @@ export async function updateProduct(
     section_id?: number;
     is_active?: boolean;
     allow_custom_quantity?: boolean;
+    is_featured?: boolean;
+    sale_price?: number | null;
   }
 ): Promise<Product | undefined> {
   const supabase = getSupabaseAdmin();
@@ -161,6 +167,8 @@ export async function updateProduct(
       ...(data.allow_custom_quantity != null
         ? { allow_custom_quantity: data.allow_custom_quantity }
         : {}),
+      ...(data.is_featured != null ? { is_featured: data.is_featured } : {}),
+      ...(data.sale_price !== undefined ? { sale_price: data.sale_price } : {}),
     })
     .eq("id", id)
     .select("*")
@@ -179,4 +187,30 @@ export async function deleteProduct(id: number): Promise<boolean> {
 
   if (error) throw error;
   return (count ?? 0) > 0;
+}
+
+export async function getFeaturedProducts(limit = 8): Promise<Product[]> {
+  const products = await getAllProducts();
+  return products.filter((p) => p.is_featured).slice(0, limit);
+}
+
+export async function getNewArrivalProducts(limit = 8): Promise<Product[]> {
+  const products = await getAllProducts();
+  return [...products]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, limit);
+}
+
+/** Real "Best Sellers", aggregated from actual completed orders via the best_selling_products RPC. */
+export async function getBestSellingProducts(limit = 8): Promise<Product[]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc("best_selling_products", { limit_count: limit });
+  if (error) throw error;
+
+  const ranked = (data ?? []) as { product_id: number; total_quantity: number }[];
+  if (ranked.length === 0) return [];
+
+  const products = await getAllProducts();
+  const byId = new Map(products.map((p) => [p.id, p]));
+  return ranked.map((r) => byId.get(r.product_id)).filter((p): p is Product => p != null);
 }

@@ -45,4 +45,32 @@ body {
   .accent-bar {
     @apply mt-4 block h-1.5 w-16 bg-brand-600;
   }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full border-2 border-gray-900 bg-white px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-gray-900;
+  }
+
+  .badge-new {
+    @apply border-gray-900 bg-gray-900 text-white;
+  }
+
+  .badge-sale {
+    @apply border-brand-600 bg-brand-600 text-white;
+  }
+
+  .card-surface {
+    @apply rounded-sm border-2 border-gray-900 bg-white transition duration-200;
+  }
+
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-600 focus-visible:ring-offset-2;
+  }
+}
+
+.scrollbar-hide {
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

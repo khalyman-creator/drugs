@@ -36,6 +36,13 @@ export async function PUT(
     section_id: body.section_id ?? product.section_id,
     is_active: body.is_active ?? product.is_active,
     allow_custom_quantity: body.allow_custom_quantity ?? product.allow_custom_quantity,
+    is_featured: body.is_featured ?? product.is_featured,
+    sale_price:
+      body.sale_price !== undefined
+        ? body.sale_price != null
+          ? Number(body.sale_price)
+          : null
+        : product.sale_price,
   });
 
   if (Array.isArray(body.pricing_options)) {

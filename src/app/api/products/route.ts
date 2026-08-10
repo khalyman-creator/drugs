@@ -28,6 +28,8 @@ export async function POST(req: NextRequest) {
     section_id: Number(body.section_id),
     is_active: body.is_active ?? true,
     allow_custom_quantity: body.allow_custom_quantity ?? true,
+    is_featured: body.is_featured ?? false,
+    sale_price: body.sale_price != null ? Number(body.sale_price) : null,
   });
 
   if (Array.isArray(body.pricing_options)) {

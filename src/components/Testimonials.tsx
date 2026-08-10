@@ -22,7 +22,7 @@ export function Testimonials({
             {reviews.map((item, i) => (
               <div
                 key={item.id}
-                className={`${rotations[i % rotations.length]} rounded-sm border-2 border-gray-900 bg-white p-6 shadow-[4px_4px_0_0_rgba(17,24,39,1)] transition hover:rotate-0`}
+                className={`${rotations[i % rotations.length]} rounded-sm border-2 border-gray-900 bg-white p-6 shadow-pop-ink transition hover:rotate-0`}
               >
                 <span className="font-display text-3xl leading-none text-brand-600">&ldquo;</span>
                 <p className="-mt-2 text-gray-700">{item.comment}</p>

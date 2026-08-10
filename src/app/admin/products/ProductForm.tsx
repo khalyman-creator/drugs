@@ -55,6 +55,8 @@ export function ProductForm({
     section_id: product?.section_id ?? defaultSectionId ?? sections[0]?.id ?? 1,
     is_active: product?.is_active ?? true,
     allow_custom_quantity: product?.allow_custom_quantity ?? true,
+    is_featured: product?.is_featured ?? false,
+    sale_price: product?.sale_price != null ? String(product.sale_price) : "",
   });
   const [rows, setRows] = useState<PricingOptionRow[]>(() => toRows(pricingOptions ?? []));
   const [galleryImages, setGalleryImages] = useState<string[]>(
@@ -165,6 +167,7 @@ export function ProductForm({
 
     const body = {
       ...form,
+      sale_price: form.sale_price.trim() === "" ? null : Number(form.sale_price),
       pricing_options: pricingMode === "standard" ? [] : rows,
       images: galleryImages.filter((u) => u.trim()),
     };
@@ -441,6 +444,44 @@ export function ProductForm({
             </p>
           )}
         </div>
+
+        {pricingMode === "standard" && (
+          <div>
+            <label className="mb-1 block text-sm font-medium">Sale Price (optional)</label>
+            <input
+              type="number"
+              step="0.01"
+              min={0}
+              value={form.sale_price}
+              onChange={(e) => setForm({ ...form, sale_price: e.target.value })}
+              placeholder="Leave blank for no sale"
+              className="w-full rounded-xl border px-4 py-2.5"
+            />
+            {form.sale_price.trim() !== "" && Number(form.sale_price) >= form.price && (
+              <p className="mt-1 text-xs text-red-600">
+                Sale price should be lower than the regular price (${form.price.toFixed(2)}).
+              </p>
+            )}
+            <p className="mt-1 text-xs text-gray-400">
+              When set, the storefront shows this as the sale price with the regular price struck through.
+            </p>
+          </div>
+        )}
+
+        <label className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm">
+          <input
+            type="checkbox"
+            checked={form.is_featured}
+            onChange={(e) => setForm({ ...form, is_featured: e.target.checked })}
+            className="h-4 w-4 accent-brand-600"
+          />
+          <span>
+            <span className="block font-medium text-gray-900">Feature on homepage</span>
+            <span className="block text-xs text-gray-500">
+              Shown in the homepage&apos;s Featured section.
+            </span>
+          </span>
+        </label>
 
         {pricingMode !== "standard" && (
           <div className="rounded-xl border border-gray-200 p-4">

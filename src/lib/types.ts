@@ -9,6 +9,8 @@ export type Product = {
   section_id: number;
   is_active: boolean;
   allow_custom_quantity: boolean;
+  is_featured: boolean;
+  sale_price: number | null;
   created_at: string;
 };
 
@@ -58,6 +60,8 @@ export type SiteSettings = {
   testimonial_3_text: string;
   btc_wallet_address: string;
   btc_payment_enabled: boolean;
+  announcement_enabled: boolean;
+  announcement_messages: string;
   featured_products_title: string;
   featured_products_subtitle: string;
   testimonials_title: string;

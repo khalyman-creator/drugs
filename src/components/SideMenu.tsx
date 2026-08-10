@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { Section } from "@/lib/types";
 
-const LINKS = [
+const INFO_LINKS = [
   { href: "/track-order", label: "Track Order" },
   { href: "/about", label: "About Us" },
   { href: "/shipping", label: "Shipping Policy" },
@@ -12,7 +13,7 @@ const LINKS = [
   { href: "/terms", label: "Terms of Service" },
 ];
 
-export function SideMenu() {
+export function SideMenu({ sections = [] }: { sections?: Section[] }) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -29,8 +30,8 @@ export function SideMenu() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label="Open About and policies menu"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100"
+        aria-label="Open shop categories and menu"
+        className="focus-ring flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-700 hover:bg-gray-100"
       >
         <svg
           className="h-5 w-5"
@@ -53,9 +54,7 @@ export function SideMenu() {
           />
           <div className="absolute right-0 top-0 h-full w-72 max-w-[85vw] overflow-y-auto bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-              <span className="font-display text-sm uppercase tracking-wide text-gray-900">
-                About &amp; Policies
-              </span>
+              <span className="font-display text-sm uppercase tracking-wide text-gray-900">Menu</span>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
@@ -65,8 +64,34 @@ export function SideMenu() {
                 ×
               </button>
             </div>
+
+            {sections.length > 0 && (
+              <>
+                <p className="px-5 pt-4 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+                  Shop
+                </p>
+                <ul className="p-3">
+                  {sections.map((s) => (
+                    <li key={s.id}>
+                      <Link
+                        href={`/products?category=${s.id}`}
+                        onClick={() => setOpen(false)}
+                        className="block rounded-lg px-3 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-brand-600"
+                      >
+                        {s.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mx-5 border-t border-gray-100" />
+              </>
+            )}
+
+            <p className="px-5 pt-4 text-[11px] font-bold uppercase tracking-wide text-gray-400">
+              About &amp; Policies
+            </p>
             <ul className="p-3">
-              {LINKS.map((l) => (
+              {INFO_LINKS.map((l) => (
                 <li key={l.href}>
                   <Link
                     href={l.href}
