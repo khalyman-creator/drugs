@@ -6,7 +6,7 @@ import { makeLineKey } from "@/lib/cart";
 import {
   formatVariantLineName,
   getActiveOptions,
-  getDisplayFromPrice,
+  getEffectivePricing,
   getPricingMode,
 } from "@/lib/pricing";
 import { NEW_ARRIVAL_DAYS } from "@/lib/design-tokens";
@@ -33,16 +33,9 @@ export function ProductCard({
 
   const mode = getPricingMode(product.section_id);
   const activeOptions = getActiveOptions(pricingOptions);
-  const displayPrice =
-    mode === "standard" ? product.price : getDisplayFromPrice(pricingOptions, product.price);
   const canAdd = hydrated && (mode === "standard" || activeOptions.length > 0);
 
-  // Sale pricing only applies to flat-priced products — tiered (gram/button)
-  // products don't have a single price to discount against.
-  const onSale = mode === "standard" && product.sale_price != null && product.sale_price < product.price;
-  // The price actually charged — mirrors the server-side resolution in
-  // validate-items.ts so the cart never shows a different price than checkout.
-  const effectivePrice = onSale ? product.sale_price! : displayPrice;
+  const { displayPrice, onSale, effectivePrice } = getEffectivePricing(product, pricingOptions);
   const isNew = isNewArrival(product.created_at);
 
   function handleAddToCart(e: React.MouseEvent) {

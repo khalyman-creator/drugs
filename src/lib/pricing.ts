@@ -1,4 +1,4 @@
-import type { ProductPricingOption } from "@/lib/types";
+import type { Product, ProductPricingOption } from "@/lib/types";
 
 export type PricingMode = "gram" | "button" | "standard";
 
@@ -91,6 +91,26 @@ export function getDisplayFromPrice(options: ProductPricingOption[], fallback: n
   const active = getActiveOptions(options);
   if (active.length === 0) return fallback;
   return Math.min(...active.map((o) => o.price));
+}
+
+/**
+ * The single source of truth for "what does this product cost/is it on
+ * sale" — used consistently by ProductCard, catalog filtering/sorting, and
+ * anywhere else that needs to reason about a product's price without
+ * duplicating this logic. Sale pricing only applies to standard-mode
+ * (flat-price) products; tiered gram/button products have no single price
+ * to discount against.
+ */
+export function getEffectivePricing(
+  product: Product,
+  pricingOptions: ProductPricingOption[]
+): { displayPrice: number; onSale: boolean; effectivePrice: number } {
+  const mode = getPricingMode(product.section_id);
+  const displayPrice =
+    mode === "standard" ? product.price : getDisplayFromPrice(pricingOptions, product.price);
+  const onSale = mode === "standard" && product.sale_price != null && product.sale_price < product.price;
+  const effectivePrice = onSale ? product.sale_price! : displayPrice;
+  return { displayPrice, onSale, effectivePrice };
 }
 
 export function formatVariantLineName(productName: string, variantLabel?: string) {

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Suspense } from "react";
 import { getSiteSettings } from "@/lib/db/supabase-settings";
-import { getProductsBySection, searchProducts } from "@/lib/db/supabase-products";
+import { getAllProducts, getBestSellingRanks } from "@/lib/db/supabase-products";
+import { getAllSections } from "@/lib/db/supabase-sections";
 import { getPricingOptionsForProducts } from "@/lib/db/supabase-pricing-options";
-import { ProductCard } from "@/components/ProductCard";
+import { CatalogView } from "@/components/catalog/CatalogView";
 import { getSiteUrl } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
@@ -30,119 +31,46 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function ProductsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string }>;
-}) {
-  const { q } = await searchParams;
-  const query = q?.trim() ?? "";
+export default async function ProductsPage() {
   const settings = await getSiteSettings();
-  const sections = await getProductsBySection();
-  const results = query ? await searchProducts(query) : null;
-
-  const allIds = new Set<number>();
-  for (const section of sections) for (const p of section.products) allIds.add(p.id);
-  if (results) for (const p of results) allIds.add(p.id);
-  const pricingOptionsByProduct = await getPricingOptionsForProducts(Array.from(allIds));
+  const [sections, products] = await Promise.all([getAllSections(), getAllProducts()]);
+  const pricingOptionsByProduct = await getPricingOptionsForProducts(products.map((p) => p.id));
+  const bestSellingRank = await getBestSellingRanks(200);
   const siteUrl = getSiteUrl();
 
-  const itemListJsonLd = !query
-    ? {
-        "@context": "https://schema.org",
-        "@type": "ItemList",
-        itemListElement: sections
-          .flatMap((section) => section.products)
-          .map((product, index) => ({
-            "@type": "ListItem",
-            position: index + 1,
-            url: `${siteUrl}/product/${product.slug}`,
-            name: product.name,
-          })),
-      }
-    : null;
+  const itemListJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: products.map((product, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      url: `${siteUrl}/product/${product.slug}`,
+      name: product.name,
+    })),
+  };
 
   return (
     <>
-      {itemListJsonLd && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
-        />
-      )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
+      />
       <div className="border-b border-gray-200 bg-white py-10 text-center">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <h1 className="text-3xl font-bold text-gray-900">
-            {query ? "Search Results" : settings.products_page_title}
-          </h1>
-          <p className="mx-auto mt-2 max-w-2xl text-gray-600">
-            {query
-              ? results?.length
-                ? `${results.length} product${results.length === 1 ? "" : "s"} matching “${query}”`
-                : `No products found for “${query}”`
-              : settings.products_page_subtitle}
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900">{settings.products_page_title}</h1>
+          <p className="mx-auto mt-2 max-w-2xl text-gray-600">{settings.products_page_subtitle}</p>
         </div>
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-        {query ? (
-          results && results.length > 0 ? (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-              {results.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  pricingOptions={pricingOptionsByProduct.get(product.id) ?? []}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-gray-200 bg-white py-16 text-center">
-              <p className="text-gray-600">Try a different search term or browse all products.</p>
-              <Link
-                href="/products"
-                className="mt-6 inline-block rounded-xl bg-brand-600 px-6 py-3 font-semibold text-white hover:bg-brand-700"
-              >
-                Browse All Products
-              </Link>
-            </div>
-          )
-        ) : (
-          <>
-            <div className="mb-10 flex flex-wrap justify-center gap-2">
-              {sections.map((section) => (
-                <a
-                  key={section.id}
-                  href={`#section-${section.id}`}
-                  className="rounded-full border border-gray-300 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:border-brand-500 hover:text-brand-700"
-                >
-                  {section.name}
-                </a>
-              ))}
-            </div>
-
-            <div className="space-y-16">
-              {sections.map((section) => (
-                <section key={section.id} id={`section-${section.id}`} className="scroll-mt-24">
-                  <div className="mb-6 border-b border-gray-200 pb-3">
-                    <h2 className="text-2xl font-bold text-gray-900">{section.name}</h2>
-                    <p className="text-sm text-gray-500">{section.products.length} products</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                    {section.products.map((product) => (
-                      <ProductCard
-                  key={product.id}
-                  product={product}
-                  pricingOptions={pricingOptionsByProduct.get(product.id) ?? []}
-                />
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
-          </>
-        )}
+        <Suspense fallback={null}>
+          <CatalogView
+            sections={sections}
+            products={products}
+            pricingOptionsEntries={Array.from(pricingOptionsByProduct.entries())}
+            bestSellingRank={bestSellingRank}
+          />
+        </Suspense>
       </div>
     </>
   );

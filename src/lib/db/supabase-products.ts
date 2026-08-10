@@ -214,3 +214,13 @@ export async function getBestSellingProducts(limit = 8): Promise<Product[]> {
   const byId = new Map(products.map((p) => [p.id, p]));
   return ranked.map((r) => byId.get(r.product_id)).filter((p): p is Product => p != null);
 }
+
+/** Lightweight best-selling ranks (product_id -> total_quantity), for client-side sorting without re-fetching full products. */
+export async function getBestSellingRanks(limit = 100): Promise<[number, number][]> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase.rpc("best_selling_products", { limit_count: limit });
+  if (error) throw error;
+
+  const ranked = (data ?? []) as { product_id: number; total_quantity: number }[];
+  return ranked.map((r) => [r.product_id, r.total_quantity]);
+}
