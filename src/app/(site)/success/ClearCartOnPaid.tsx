@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useCart } from "@/components/CartProvider";
+import { PENDING_ORDER_STORAGE_KEY } from "@/app/(site)/checkout/CheckoutClient";
 
 /**
  * The cart is intentionally kept alive through the whole payment redirect
@@ -17,6 +18,7 @@ export function ClearCartOnPaid({ isPaid }: { isPaid: boolean }) {
     if (isPaid && hydrated && !cleared.current) {
       cleared.current = true;
       clearCart();
+      localStorage.removeItem(PENDING_ORDER_STORAGE_KEY);
     }
   }, [isPaid, hydrated, clearCart]);
 

@@ -9,11 +9,22 @@ import { formatOrderReference } from "@/lib/email/order-ref";
 import type { PendingOrder } from "./types";
 
 const MIN_CHECKOUT = 20;
+export const PENDING_ORDER_STORAGE_KEY = "silkfreedom_pending_order_id";
 const SHIPPING_OPTIONS = {
   standard: { label: "Standard Shipping", price: 10 },
   express: { label: "Express Shipping", price: 20 },
 } as const;
 type ShippingMethod = keyof typeof SHIPPING_OPTIONS;
+
+function formFromPendingOrder(pendingOrder: PendingOrder | null) {
+  if (!pendingOrder) {
+    return { name: "", email: "", address: "", city: "", zip: "" };
+  }
+  const parts = pendingOrder.shippingAddress.split(", ");
+  const [address, city, zip] =
+    parts.length === 3 ? parts : [pendingOrder.shippingAddress, "", ""];
+  return { name: pendingOrder.customerName, email: pendingOrder.customerEmail, address, city, zip };
+}
 
 function PaymentStatusBadge({ status }: { status: string }) {
   const map: Record<string, { icon: string; label: string; className: string }> = {
@@ -208,20 +219,20 @@ export default function CheckoutClient({ pendingOrder }: { pendingOrder: Pending
   const [resumeDismissed, setResumeDismissed] = useState(false);
   const submitInFlight = useRef(false);
 
-  // Seeded once from pendingOrder on first render — a returning customer
-  // shouldn't have to retype what we already saved for their pending order.
-  // The DB stores shipping as one joined "address, city, zip" string, so we
-  // best-effort split it back into the three fields; anything that doesn't
-  // cleanly split falls back into the address field rather than being lost.
-  const [form, setForm] = useState(() => {
-    if (!pendingOrder) {
-      return { name: "", email: "", address: "", city: "", zip: "" };
-    }
-    const parts = pendingOrder.shippingAddress.split(", ");
-    const [address, city, zip] =
-      parts.length === 3 ? parts : [pendingOrder.shippingAddress, "", ""];
-    return { name: pendingOrder.customerName, email: pendingOrder.customerEmail, address, city, zip };
-  });
+  // A returning customer shouldn't have to retype what we already saved for
+  // their pending order. The DB stores shipping as one joined
+  // "address, city, zip" string, so we best-effort split it back into the
+  // three fields; anything that doesn't cleanly split falls back into the
+  // address field rather than being lost.
+  const [form, setForm] = useState(() => formFromPendingOrder(pendingOrder));
+
+  // pendingOrder can arrive AFTER this component's first mount (the
+  // localStorage-fallback effect below replaces the URL client-side rather
+  // than doing a fresh page load), and useState's initializer only runs once
+  // — so it must be explicitly resynced whenever a pending order shows up.
+  useEffect(() => {
+    if (pendingOrder) setForm(formFromPendingOrder(pendingOrder));
+  }, [pendingOrder]);
 
   useEffect(() => {
     fetch("/api/public/store-config")
@@ -248,6 +259,21 @@ export default function CheckoutClient({ pendingOrder }: { pendingOrder: Pending
       setError("Payment was cancelled or failed. You can try again.");
     }
   }, [searchParams, pendingOrder]);
+
+  // Fallback for when NOWPayments' own "return"/"back" control doesn't
+  // round-trip our ?orderId= param (third-party redirects aren't guaranteed
+  // to preserve custom query strings). We stash the order id in localStorage
+  // right before leaving for NOWPayments; if we land back on checkout with
+  // no orderId in the URL but one saved locally, pull it into the URL so the
+  // server can look up and restore the real pending order.
+  useEffect(() => {
+    if (pendingOrder || searchParams.get("orderId")) return;
+    const savedOrderId = localStorage.getItem(PENDING_ORDER_STORAGE_KEY);
+    if (savedOrderId) {
+      router.replace(`/checkout?orderId=${encodeURIComponent(savedOrderId)}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (pendingOrder && !resumeDismissed) {
     return <ResumeOrderPanel pendingOrder={pendingOrder} onDismiss={() => setResumeDismissed(true)} />;
@@ -335,6 +361,9 @@ export default function CheckoutClient({ pendingOrder }: { pendingOrder: Pending
       // /success page confirms the order is actually paid.
       const redirectUrl = data.redirectUrl ?? data.payment?.paymentUrl;
       if (redirectUrl) {
+        // Saved so we can restore this order even if NOWPayments' own
+        // return/back control doesn't preserve our ?orderId= query param.
+        localStorage.setItem(PENDING_ORDER_STORAGE_KEY, data.orderId);
         window.location.href = redirectUrl;
         return;
       }
@@ -465,7 +494,7 @@ export default function CheckoutClient({ pendingOrder }: { pendingOrder: Pending
           disabled={loading || belowMinimum || checkoutReady === false}
           className="btn-primary w-full disabled:opacity-60"
         >
-          {loading ? "Creating invoice..." : `Pay Now · ${formatPrice(total)}`}
+          {loading ? "Processing..." : "Pay Now"}
         </button>
 
         <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-1 text-xs text-gray-500">
