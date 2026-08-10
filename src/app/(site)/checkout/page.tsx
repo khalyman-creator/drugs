@@ -33,7 +33,9 @@ export default async function CheckoutPage({
         subtotal: Number(order.subtotal),
         shipping: Number(order.shipping),
         total: Number(order.total),
+        customerName: order.customer?.full_name ?? "",
         customerEmail: order.customer?.email ?? "",
+        shippingAddress: order.customer?.shipping_address ?? "",
         items: order.items.map((item) => ({
           name: item.name,
           price: Number(item.price),

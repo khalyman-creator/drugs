@@ -6,6 +6,8 @@ export type PendingOrder = {
   subtotal: number;
   shipping: number;
   total: number;
+  customerName: string;
   customerEmail: string;
+  shippingAddress: string;
   items: { name: string; price: number; quantity: number }[];
 };

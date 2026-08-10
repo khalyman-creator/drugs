@@ -208,12 +208,19 @@ export default function CheckoutClient({ pendingOrder }: { pendingOrder: Pending
   const [resumeDismissed, setResumeDismissed] = useState(false);
   const submitInFlight = useRef(false);
 
-  const [form, setForm] = useState({
-    name: "",
-    email: "",
-    address: "",
-    city: "",
-    zip: "",
+  // Seeded once from pendingOrder on first render — a returning customer
+  // shouldn't have to retype what we already saved for their pending order.
+  // The DB stores shipping as one joined "address, city, zip" string, so we
+  // best-effort split it back into the three fields; anything that doesn't
+  // cleanly split falls back into the address field rather than being lost.
+  const [form, setForm] = useState(() => {
+    if (!pendingOrder) {
+      return { name: "", email: "", address: "", city: "", zip: "" };
+    }
+    const parts = pendingOrder.shippingAddress.split(", ");
+    const [address, city, zip] =
+      parts.length === 3 ? parts : [pendingOrder.shippingAddress, "", ""];
+    return { name: pendingOrder.customerName, email: pendingOrder.customerEmail, address, city, zip };
   });
 
   useEffect(() => {
