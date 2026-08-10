@@ -35,27 +35,96 @@ function PaymentStatusBadge({ status }: { status: string }) {
 function PaymentInstructions() {
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5">
-      <h2 className="font-semibold">Payment Instructions</h2>
-      <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-gray-600">
-        <li>Review your order and confirm your shipping information.</li>
-        <li>Click <span className="font-medium text-gray-900">Pay Now</span>.</li>
-        <li>You&apos;ll be securely redirected to NOWPayments, our crypto payment provider.</li>
-        <li>Complete payment there using Bitcoin or any of 300+ accepted cryptocurrencies.</li>
-        <li>Return to SilkFreedom when prompted — your order stays saved either way.</li>
-        <li>Your order status updates automatically once payment is confirmed.</li>
-      </ol>
-      <p className="mt-3 border-t border-gray-100 pt-3 text-sm text-gray-600">
-        New to crypto? Buy BTC (or another coin) with a debit or credit card on{" "}
-        <a
-          href="https://changenow.io"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-brand-600 underline hover:text-brand-700"
-        >
-          ChangeNOW
-        </a>
-        , then send it to the address NOWPayments gives you at checkout.
+      <h2 className="font-semibold">Payment</h2>
+      <p className="mt-2 text-sm font-medium text-gray-900">Secure Checkout via NOWPayments</p>
+      <p className="mt-1 text-sm text-gray-600">
+        Complete your payment securely through NOWPayments, with support for BTC, ETH, USDT, and
+        300+ cryptocurrencies.
       </p>
+      <p className="mt-2 text-sm text-gray-600">
+        Select <span className="font-medium text-gray-900">Pay Now</span> to proceed to your
+        secure NOWPayments payment page and complete your transaction.
+      </p>
+
+      <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+        <p className="text-sm font-semibold text-amber-900">Important Payment Instructions</p>
+        <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm text-amber-900">
+          <li>
+            After completing your payment, copy and securely save your NOWPayments Transaction ID
+            for your records.
+          </li>
+          <li>
+            Once your Transaction ID has been copied, the NOWPayments payment page will
+            automatically close and redirect you back to SilkFreedom.
+          </li>
+          <li>
+            Your return to SilkFreedom means you have returned to checkout after submitting the
+            payment flow — it is not confirmation that your payment was received.
+          </li>
+          <li>Please retain your Transaction ID until your payment and order have been fully confirmed.</li>
+        </ul>
+      </div>
+
+      <div className="mt-4 border-t border-gray-100 pt-4">
+        <p className="text-sm font-semibold text-gray-900">Don&apos;t Have Cryptocurrency?</p>
+        <p className="mt-1 text-sm text-gray-600">
+          You can purchase cryptocurrency using a debit or credit card through a third-party
+          exchange such as{" "}
+          <a
+            href="https://changenow.io"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand-600 underline hover:text-brand-700"
+          >
+            ChangeNOW
+          </a>
+          , then use your cryptocurrency to complete your SilkFreedom payment.
+        </p>
+
+        <p className="mt-3 text-xs font-bold uppercase tracking-wide text-gray-500">How It Works</p>
+        <ol className="mt-2 space-y-3">
+          {[
+            {
+              title: "Purchase Cryptocurrency",
+              body: "Open ChangeNOW in a new tab and purchase BTC or another cryptocurrency supported by NOWPayments using your debit or credit card.",
+            },
+            {
+              title: "Return to SilkFreedom",
+              body: "Return to this checkout and select Pay Now to open your secure, unique NOWPayments payment page.",
+            },
+            {
+              title: "Complete Payment & Save Your Transaction ID",
+              body: "Complete your payment through NOWPayments and copy your Transaction ID. The payment page will then automatically close and redirect you back to SilkFreedom.",
+            },
+          ].map((step, i) => (
+            <li key={step.title} className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-bold text-white">
+                {i + 1}
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900">{step.title}</p>
+                <p className="text-sm text-gray-600">{step.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      <div className="mt-4 space-y-2 border-t border-gray-100 pt-4 text-xs text-gray-500">
+        <p>
+          <span className="font-semibold text-gray-700">Important:</span> ChangeNOW is an
+          independent third-party service. SilkFreedom does not process, control, or verify
+          transactions conducted through ChangeNOW.
+        </p>
+        <p>Your cryptocurrency payment to SilkFreedom is processed through NOWPayments.</p>
+        <p>
+          Need assistance?{" "}
+          <Link href="/contact" className="text-brand-600 underline hover:text-brand-700">
+            Contact SilkFreedom Support
+          </Link>{" "}
+          before submitting your payment.
+        </p>
+      </div>
     </div>
   );
 }
@@ -104,23 +173,26 @@ function ResumeOrderPanel({
           <span>Total</span>
           <span>{formatPrice(pendingOrder.total)}</span>
         </div>
-
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-          <button
-            type="button"
-            onClick={handleContinue}
-            disabled={!pendingOrder.paymentUrl || continuing}
-            className="btn-primary flex-1 disabled:opacity-60"
-          >
-            {continuing ? "Redirecting..." : "Continue Payment"}
-          </button>
-          <button type="button" onClick={onDismiss} className="btn-outline flex-1">
-            Return to Checkout
-          </button>
-        </div>
       </div>
 
-      <PaymentInstructions />
+      <div className="mt-6">
+        <PaymentInstructions />
+      </div>
+
+      {/* Actions come last — after the customer has seen the total and re-read the instructions. */}
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <button
+          type="button"
+          onClick={handleContinue}
+          disabled={!pendingOrder.paymentUrl || continuing}
+          className="btn-primary flex-1 disabled:opacity-60"
+        >
+          {continuing ? "Redirecting..." : "Continue Payment"}
+        </button>
+        <button type="button" onClick={onDismiss} className="btn-outline flex-1">
+          Return to Checkout
+        </button>
+      </div>
     </div>
   );
 }
@@ -275,7 +347,7 @@ export default function CheckoutClient({ pendingOrder }: { pendingOrder: Pending
       <p className="mb-8 text-gray-500">Pay securely with crypto via NOWPayments.</p>
 
       <div className="grid gap-8 lg:grid-cols-5">
-        <form onSubmit={handleSubmit} className="min-w-0 space-y-4 lg:col-span-3">
+        <form id="checkout-form" onSubmit={handleSubmit} className="min-w-0 space-y-4 lg:col-span-3">
           <div className="rounded-xl border border-gray-200 bg-white p-5">
             <h2 className="font-semibold">Shipping</h2>
             <div className="mt-4 space-y-3">
@@ -328,65 +400,6 @@ export default function CheckoutClient({ pendingOrder }: { pendingOrder: Pending
           </div>
 
           <PaymentInstructions />
-
-          {checkoutReady === null && (
-            <p className="text-sm text-gray-500">Checking payment connection...</p>
-          )}
-
-          {checkoutReady === false && !error && (
-            <p className="text-sm text-amber-700">
-              Payment gateway is not connected. Run START.bat to restart the store with payment keys loaded.
-            </p>
-          )}
-
-          {belowMinimum && (
-            <p className="text-sm text-amber-700">
-              Add {formatPrice(MIN_CHECKOUT - subtotal)} more to reach the minimum checkout amount.
-            </p>
-          )}
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
-
-          <button
-            type="submit"
-            disabled={loading || belowMinimum || checkoutReady === false}
-            className="btn-primary w-full disabled:opacity-60"
-          >
-            {loading ? "Creating invoice..." : `Pay Now · ${formatPrice(total)}`}
-          </button>
-
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-1 text-xs text-gray-500">
-            <span className="flex items-center gap-1.5">
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-brand-600">
-                <path
-                  fillRule="evenodd"
-                  d="M10 1a4 4 0 0 0-4 4v2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-1V5a4 4 0 0 0-4-4Zm2 6V5a2 2 0 1 0-4 0v2h4Z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              Secure checkout
-            </span>
-            <span className="flex items-center gap-1.5">
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-brand-600">
-                <path
-                  fillRule="evenodd"
-                  d="M10 1.75c-2.4 1.44-4.6 2.1-7 2.1v6.65c0 4.6 2.98 7.6 7 8.75 4.02-1.15 7-4.15 7-8.75V3.85c-2.4 0-4.6-.66-7-2.1Zm3.03 6.03-3.75 4.5a.75.75 0 0 1-1.12.06l-1.75-1.75a.75.75 0 1 1 1.06-1.06l1.16 1.16 3.24-3.88a.75.75 0 1 1 1.16.97Z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              Encrypted payment
-            </span>
-            <Link href="/refunds" className="flex items-center gap-1.5 hover:text-gray-700">
-              <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-brand-600">
-                <path d="M10 2a8 8 0 1 0 8 8h-1.5a6.5 6.5 0 1 1-1.9-4.6L12 8h5V3l-1.65 1.65A7.98 7.98 0 0 0 10 2Z" />
-              </svg>
-              30-day refunds
-            </Link>
-          </div>
-
-          <Link href="/cart" className="block text-center text-sm text-gray-500 hover:underline">
-            ← Back to cart
-          </Link>
         </form>
 
         <div className="min-w-0 rounded-xl border border-gray-200 bg-white p-5 lg:col-span-2">
@@ -416,6 +429,70 @@ export default function CheckoutClient({ pendingOrder }: { pendingOrder: Pending
             <span>{formatPrice(total)}</span>
           </div>
         </div>
+      </div>
+
+      {/* Pay Now sits last — after the customer has read the payment
+          instructions and seen the full order total, on every screen size. */}
+      <div className="mx-auto mt-8 max-w-2xl space-y-4">
+        {checkoutReady === null && (
+          <p className="text-center text-sm text-gray-500">Checking payment connection...</p>
+        )}
+
+        {checkoutReady === false && !error && (
+          <p className="text-center text-sm text-amber-700">
+            Payment gateway is not connected. Run START.bat to restart the store with payment keys loaded.
+          </p>
+        )}
+
+        {belowMinimum && (
+          <p className="text-center text-sm text-amber-700">
+            Add {formatPrice(MIN_CHECKOUT - subtotal)} more to reach the minimum checkout amount.
+          </p>
+        )}
+
+        {error && <p className="text-center text-sm text-red-600">{error}</p>}
+
+        <button
+          type="submit"
+          form="checkout-form"
+          disabled={loading || belowMinimum || checkoutReady === false}
+          className="btn-primary w-full disabled:opacity-60"
+        >
+          {loading ? "Creating invoice..." : `Pay Now · ${formatPrice(total)}`}
+        </button>
+
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-1 text-xs text-gray-500">
+          <span className="flex items-center gap-1.5">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-brand-600">
+              <path
+                fillRule="evenodd"
+                d="M10 1a4 4 0 0 0-4 4v2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-1V5a4 4 0 0 0-4-4Zm2 6V5a2 2 0 1 0-4 0v2h4Z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Secure checkout
+          </span>
+          <span className="flex items-center gap-1.5">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-brand-600">
+              <path
+                fillRule="evenodd"
+                d="M10 1.75c-2.4 1.44-4.6 2.1-7 2.1v6.65c0 4.6 2.98 7.6 7 8.75 4.02-1.15 7-4.15 7-8.75V3.85c-2.4 0-4.6-.66-7-2.1Zm3.03 6.03-3.75 4.5a.75.75 0 0 1-1.12.06l-1.75-1.75a.75.75 0 1 1 1.06-1.06l1.16 1.16 3.24-3.88a.75.75 0 1 1 1.16.97Z"
+                clipRule="evenodd"
+              />
+            </svg>
+            Encrypted payment
+          </span>
+          <Link href="/refunds" className="flex items-center gap-1.5 hover:text-gray-700">
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-brand-600">
+              <path d="M10 2a8 8 0 1 0 8 8h-1.5a6.5 6.5 0 1 1-1.9-4.6L12 8h5V3l-1.65 1.65A7.98 7.98 0 0 0 10 2Z" />
+            </svg>
+            30-day refunds
+          </Link>
+        </div>
+
+        <Link href="/cart" className="block text-center text-sm text-gray-500 hover:underline">
+          ← Back to cart
+        </Link>
       </div>
     </div>
   );
