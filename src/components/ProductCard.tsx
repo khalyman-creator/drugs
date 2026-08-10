@@ -68,7 +68,7 @@ export function ProductCard({
         <div className="relative aspect-square overflow-hidden bg-gray-50">
           {(onSale || isNew) && (
             <div className="absolute left-2 top-2 z-10 flex flex-col gap-1">
-              {onSale && <span className="badge badge-sale">Sale</span>}
+              {onSale && <span className="badge badge-sale">On Sale</span>}
               {isNew && <span className="badge badge-new">New</span>}
             </div>
           )}

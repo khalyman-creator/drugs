@@ -55,7 +55,9 @@ body {
   }
 
   .badge-sale {
-    @apply border-brand-600 bg-brand-600 text-white;
+    @apply border-gray-900 text-white;
+    background: linear-gradient(135deg, theme("colors.brand.500") 0%, theme("colors.brand.600") 55%, theme("colors.brand.800") 100%);
+    box-shadow: 0 2px 6px theme("colors.brand.600 / 35%");
   }
 
   .card-surface {
