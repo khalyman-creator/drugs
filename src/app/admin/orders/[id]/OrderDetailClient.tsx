@@ -65,6 +65,7 @@ export function OrderDetailClient({
   const [events, setEvents] = useState(initialEvents);
   const [savingField, setSavingField] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [markingPaid, setMarkingPaid] = useState(false);
 
   // initialEvents is a fresh array from the server on every router.refresh(),
   // but useState only reads it on first mount — resync explicitly so the
@@ -98,6 +99,28 @@ export function OrderDetailClient({
 
   async function refreshEvents() {
     router.refresh();
+  }
+
+  async function handleMarkPaid() {
+    if (!confirm("Confirm this order was actually paid outside the automatic payment flow? This will send the customer a receipt email.")) {
+      return;
+    }
+    setMarkingPaid(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/orders/${order.id}/mark-paid`, {
+        method: "PATCH",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to mark order as paid");
+        return;
+      }
+      setOrder((prev) => ({ ...prev, ...data }));
+      await refreshEvents();
+    } finally {
+      setMarkingPaid(false);
+    }
   }
 
   async function patchStatus(
@@ -286,6 +309,16 @@ export function OrderDetailClient({
             </>
           )}
           <p className="mt-2 text-lg font-bold text-brand-700">{formatPrice(Number(order.total))}</p>
+          {order.status !== "paid" && (
+            <button
+              type="button"
+              onClick={handleMarkPaid}
+              disabled={markingPaid}
+              className="mt-3 rounded-lg border border-green-300 bg-green-50 px-3 py-1.5 text-xs font-semibold text-green-800 hover:bg-green-100 disabled:opacity-60"
+            >
+              {markingPaid ? "Confirming..." : "Mark as Paid"}
+            </button>
+          )}
         </div>
       </div>
 

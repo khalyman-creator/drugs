@@ -4,6 +4,7 @@ import { findPaymentByOrderId } from "@/lib/db/supabase-payments";
 import { ensureOrderReceiptEmail } from "@/lib/email/send-order-emails";
 import { isEmailConfigured } from "@/lib/email/resend";
 import { formatOrderReference } from "@/lib/email/order-ref";
+import { ClearCartOnPaid } from "./ClearCartOnPaid";
 
 export default async function SuccessPage({
   searchParams,
@@ -39,6 +40,7 @@ export default async function SuccessPage({
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-16 text-center">
+      <ClearCartOnPaid isPaid={isPaid} />
       <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 text-3xl text-green-700">
         ✓
       </div>

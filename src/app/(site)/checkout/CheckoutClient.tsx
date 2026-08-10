@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCart } from "@/components/CartProvider";
 import { formatPrice } from "@/lib/format";
+import { formatOrderReference } from "@/lib/email/order-ref";
+import type { PendingOrder } from "./types";
 
 const MIN_CHECKOUT = 20;
 const SHIPPING_OPTIONS = {
@@ -13,7 +15,117 @@ const SHIPPING_OPTIONS = {
 } as const;
 type ShippingMethod = keyof typeof SHIPPING_OPTIONS;
 
-export default function CheckoutClient() {
+function PaymentStatusBadge({ status }: { status: string }) {
+  const map: Record<string, { icon: string; label: string; className: string }> = {
+    paid: { icon: "🟢", label: "Payment Confirmed", className: "bg-green-50 text-green-800 border-green-200" },
+    pending: { icon: "🟡", label: "Payment Pending", className: "bg-amber-50 text-amber-800 border-amber-200" },
+    failed: { icon: "🔴", label: "Payment Failed", className: "bg-red-50 text-red-800 border-red-200" },
+    refunded: { icon: "⚪", label: "Payment Refunded", className: "bg-gray-50 text-gray-700 border-gray-200" },
+  };
+  const entry = map[status] ?? { icon: "⚪", label: "Payment Cancelled", className: "bg-gray-50 text-gray-700 border-gray-200" };
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-semibold ${entry.className}`}>
+      <span aria-hidden>{entry.icon}</span>
+      {entry.label}
+    </span>
+  );
+}
+
+function PaymentInstructions() {
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-5">
+      <h2 className="font-semibold">Payment Instructions</h2>
+      <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-gray-600">
+        <li>Review your order and confirm your shipping information.</li>
+        <li>Click <span className="font-medium text-gray-900">Pay Now</span>.</li>
+        <li>You&apos;ll be securely redirected to NOWPayments, our crypto payment provider.</li>
+        <li>Complete payment there using Bitcoin or any of 300+ accepted cryptocurrencies.</li>
+        <li>Return to SilkFreedom when prompted — your order stays saved either way.</li>
+        <li>Your order status updates automatically once payment is confirmed.</li>
+      </ol>
+      <p className="mt-3 border-t border-gray-100 pt-3 text-sm text-gray-600">
+        New to crypto? Buy BTC (or another coin) with a debit or credit card on{" "}
+        <a
+          href="https://changenow.io"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-brand-600 underline hover:text-brand-700"
+        >
+          ChangeNOW
+        </a>
+        , then send it to the address NOWPayments gives you at checkout.
+      </p>
+    </div>
+  );
+}
+
+function ResumeOrderPanel({
+  pendingOrder,
+  onDismiss,
+}: {
+  pendingOrder: PendingOrder;
+  onDismiss: () => void;
+}) {
+  const [continuing, setContinuing] = useState(false);
+
+  function handleContinue() {
+    if (!pendingOrder.paymentUrl) return;
+    setContinuing(true);
+    window.location.href = pendingOrder.paymentUrl;
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
+      <div className="rounded-xl border border-gray-200 bg-white p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-xl font-bold text-gray-900">Payment Pending</h1>
+          <PaymentStatusBadge status={pendingOrder.paymentStatus} />
+        </div>
+        <p className="mt-3 text-sm text-gray-600">
+          Your order has been saved. Your checkout information and items are still securely saved
+          — nothing has been lost.
+        </p>
+        <p className="mt-1 text-xs text-gray-400">
+          Order reference: <span className="font-mono">{formatOrderReference(pendingOrder.orderId)}</span>
+        </p>
+
+        <div className="mt-5 space-y-2 border-t border-gray-100 pt-4">
+          {pendingOrder.items.map((item, i) => (
+            <div key={i} className="flex justify-between text-sm">
+              <span className="min-w-0 truncate pr-2 text-gray-700">
+                {item.name} × {item.quantity}
+              </span>
+              <span className="shrink-0 text-gray-900">{formatPrice(item.price * item.quantity)}</span>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex justify-between border-t border-gray-100 pt-3 font-bold text-gray-900">
+          <span>Total</span>
+          <span>{formatPrice(pendingOrder.total)}</span>
+        </div>
+
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={handleContinue}
+            disabled={!pendingOrder.paymentUrl || continuing}
+            className="btn-primary flex-1 disabled:opacity-60"
+          >
+            {continuing ? "Redirecting..." : "Continue Payment"}
+          </button>
+          <button type="button" onClick={onDismiss} className="btn-outline flex-1">
+            Return to Checkout
+          </button>
+        </div>
+      </div>
+
+      <PaymentInstructions />
+    </div>
+  );
+}
+
+export default function CheckoutClient({ pendingOrder }: { pendingOrder: PendingOrder | null }) {
   const { cart, clearCart, removeItem, hydrated } = useCart();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -21,6 +133,7 @@ export default function CheckoutClient() {
   const [error, setError] = useState("");
   const [checkoutReady, setCheckoutReady] = useState<boolean | null>(null);
   const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("standard");
+  const [resumeDismissed, setResumeDismissed] = useState(false);
   const submitInFlight = useRef(false);
 
   const [form, setForm] = useState({
@@ -52,10 +165,14 @@ export default function CheckoutClient() {
   }, []);
 
   useEffect(() => {
-    if (searchParams.get("payment") === "failed") {
+    if (searchParams.get("payment") === "failed" && !pendingOrder) {
       setError("Payment was cancelled or failed. You can try again.");
     }
-  }, [searchParams]);
+  }, [searchParams, pendingOrder]);
+
+  if (pendingOrder && !resumeDismissed) {
+    return <ResumeOrderPanel pendingOrder={pendingOrder} onDismiss={() => setResumeDismissed(true)} />;
+  }
 
   if (!hydrated) {
     return (
@@ -132,14 +249,18 @@ export default function CheckoutClient() {
         return;
       }
 
-      clearCart();
-
+      // The cart is intentionally NOT cleared here — the order is created and
+      // saved server-side, but payment isn't confirmed yet. If the customer
+      // cancels or returns from NOWPayments without paying, their cart (and
+      // this checkout) must still be here. The cart only clears once the
+      // /success page confirms the order is actually paid.
       const redirectUrl = data.redirectUrl ?? data.payment?.paymentUrl;
       if (redirectUrl) {
         window.location.href = redirectUrl;
         return;
       }
 
+      clearCart();
       router.push(`/success?orderId=${encodeURIComponent(data.orderId)}`);
     } catch {
       setError("Something went wrong. Try again.");
@@ -206,31 +327,7 @@ export default function CheckoutClient() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-gray-200 bg-white p-5">
-            <h2 className="font-semibold">Payment</h2>
-            <p className="mt-1 text-sm text-gray-500">NOWPayments — crypto checkout</p>
-            <p className="mt-3 text-sm text-gray-600">
-              Click <span className="font-medium">Pay Now</span> to place your order and open the
-              secure NOWPayments payment page. Bitcoin and 300+ cryptocurrencies are accepted.
-            </p>
-            <p className="mt-3 text-sm text-gray-600">New to crypto? Here&apos;s how to pay with a card:</p>
-            <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm text-gray-600">
-              <li>
-                Buy BTC (or another coin) with your debit or credit card on{" "}
-                <a
-                  href="https://changenow.io"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-brand-600 underline hover:text-brand-700"
-                >
-                  ChangeNOW
-                </a>
-                .
-              </li>
-              <li>Click Pay Now below to get your unique NOWPayments payment address.</li>
-              <li>Send your crypto to that address — you&apos;ll get your order confirmation once it arrives.</li>
-            </ol>
-          </div>
+          <PaymentInstructions />
 
           {checkoutReady === null && (
             <p className="text-sm text-gray-500">Checking payment connection...</p>
