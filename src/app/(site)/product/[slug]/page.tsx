@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProductBySlug, getAllProducts } from "@/lib/db/supabase-products";
 import { getSectionById } from "@/lib/db/supabase-sections";
@@ -9,7 +8,7 @@ import {
 } from "@/lib/db/supabase-pricing-options";
 import { getImagesForProduct } from "@/lib/db/supabase-product-images";
 import { ProductPageClient } from "@/components/ProductPageClient";
-import { ProductCard } from "@/components/ProductCard";
+import { ProductCarousel } from "@/components/ProductCarousel";
 import { getSiteUrl } from "@/lib/env";
 import { getDisplayFromPrice, getPricingMode } from "@/lib/pricing";
 
@@ -58,7 +57,13 @@ export default async function ProductPage({
 
   const section = await getSectionById(product.section_id);
   const allProducts = await getAllProducts();
-  const related = allProducts.filter((p) => p.id !== product.id).slice(0, 4);
+  const sameSection = allProducts.filter(
+    (p) => p.id !== product.id && p.section_id === product.section_id
+  );
+  const otherSection = allProducts.filter(
+    (p) => p.id !== product.id && p.section_id !== product.section_id
+  );
+  const related = [...sameSection, ...otherSection].slice(0, 8);
   const pricingOptions = await getPricingOptionsForProduct(product.id);
   const relatedPricingOptions = await getPricingOptionsForProducts(related.map((p) => p.id));
   const galleryImages = await getImagesForProduct(product.id);
@@ -103,42 +108,31 @@ export default async function ProductPage({
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
-      />
-      <ProductPageClient
-        product={product}
-        sectionName={section?.name ?? "Shop"}
-        pricingOptions={pricingOptions}
-        galleryImages={galleryImages}
-      />
+    <>
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        />
+        <ProductPageClient
+          product={product}
+          sectionName={section?.name ?? "Shop"}
+          pricingOptions={pricingOptions}
+          galleryImages={galleryImages}
+        />
+      </div>
 
-      {related.length > 0 && (
-        <section className="mt-16 border-t border-gray-200 pt-12">
-          <h2 className="mb-2 text-2xl font-bold text-gray-900">Related Products</h2>
-          <p className="mb-8 text-sm text-gray-500">You may also like these items</p>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            {related.map((p) => (
-              <ProductCard
-                key={p.id}
-                product={p}
-                pricingOptions={relatedPricingOptions.get(p.id) ?? []}
-              />
-            ))}
-          </div>
-          <div className="mt-8 text-center">
-            <Link href="/products" className="btn-outline">
-              View All Products
-            </Link>
-          </div>
-        </section>
-      )}
-    </div>
+      <ProductCarousel
+        title="You May Also Like"
+        subtitle="More from the collection."
+        products={related}
+        pricingOptionsByProduct={relatedPricingOptions}
+        seeAllHref="/products"
+      />
+    </>
   );
 }
