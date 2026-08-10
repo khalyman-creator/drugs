@@ -4,12 +4,23 @@ import {
   updatePaymentRecord,
   type PaymentRecord,
 } from "@/lib/db/supabase-payments";
+import { getShipmentByOrderId } from "@/lib/db/supabase-shipments";
+import {
+  getOrderStatusEventById,
+  type OrderStatusEvent,
+  type OrderStatusEventType,
+} from "@/lib/db/supabase-order-events";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { getAdminEmail } from "@/lib/env";
 import {
   buildAdminOrderNotificationHtml,
+  buildDeliveryExceptionEmailHtml,
   buildInvoiceEmailHtml,
+  buildOrderCancelledEmailHtml,
+  buildProcessingCompleteEmailHtml,
   buildReceiptEmailHtml,
+  buildShipmentHoldEmailHtml,
+  buildShippingMilestoneEmailHtml,
 } from "./order-templates";
 import { formatOrderReference } from "./order-ref";
 import { isEmailConfigured, sendEmail } from "./resend";
@@ -207,4 +218,116 @@ export async function ensureOrderReceiptEmail(orderId: string): Promise<void> {
         ? payment.metadata.paid_at
         : undefined,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Order-tracking status-change notifications.
+//
+// Mirrors claimEmailSend/releaseEmailClaim exactly (same atomic conditional
+// UPDATE, claim-before-send, release-on-failure), but the claim lives on the
+// order_status_events row itself instead of payments.metadata — some of
+// these transitions (holds, delivery exceptions) can legitimately recur on
+// the same order, which a once-per-order boolean couldn't represent.
+// ---------------------------------------------------------------------------
+
+async function claimEventEmail(eventId: string): Promise<boolean> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("order_status_events")
+    .update({ email_sent_at: new Date().toISOString() })
+    .eq("id", eventId)
+    .is("email_sent_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error) throw error;
+  return data != null;
+}
+
+async function releaseEventEmailClaim(eventId: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  await supabase.from("order_status_events").update({ email_sent_at: null }).eq("id", eventId);
+}
+
+/** Which transitions actually notify the customer — everything else is left for the tracking timeline. */
+function isNotifyWorthy(event: OrderStatusEvent): boolean {
+  if (event.event_type === "processing_status") {
+    return event.new_value === "processing_complete";
+  }
+  if (event.event_type === "shipping_status") {
+    return event.new_value === "shipped" || event.new_value === "out_for_delivery" || event.new_value === "delivered";
+  }
+  if (event.event_type === "delivery_exception_set") return true;
+  if (event.event_type === "hold_placed") return true;
+  if (event.event_type === "control_status") return event.new_value === "cancelled";
+  // hold_released, delivery_exception_resolved, and non-cancelled control
+  // changes are intentionally silent — visible in the timeline, no email.
+  return false;
+}
+
+const NOTIFY_EVENT_TYPES: OrderStatusEventType[] = [
+  "processing_status",
+  "shipping_status",
+  "delivery_exception_set",
+  "hold_placed",
+  "control_status",
+];
+
+export async function notifyCustomerOfStatusEvent(eventId: string): Promise<{ sent: boolean; error?: string }> {
+  if (!isEmailConfigured()) {
+    return { sent: false, error: "RESEND_API_KEY not configured" };
+  }
+
+  const event = await getOrderStatusEventById(eventId);
+  if (!event || !NOTIFY_EVENT_TYPES.includes(event.event_type) || !isNotifyWorthy(event)) {
+    return { sent: false, error: "Not a notify-worthy transition" };
+  }
+
+  const order = await getOrderById(event.order_id);
+  if (!order?.customer?.email) {
+    return { sent: false, error: "Order or customer email not found" };
+  }
+
+  const claimed = await claimEventEmail(eventId);
+  if (!claimed) {
+    return { sent: false, error: "Already notified for this event" };
+  }
+
+  const orderRef = formatOrderReference(order.id);
+  let html: string;
+  let subject: string;
+
+  if (event.event_type === "shipping_status") {
+    const milestone = event.new_value as "shipped" | "out_for_delivery" | "delivered";
+    const shipment = await getShipmentByOrderId(order.id);
+    html = buildShippingMilestoneEmailHtml({ order, shipment, milestone });
+    subject = `SilkFreedom Order ${orderRef} — ${milestone === "shipped" ? "Shipped" : milestone === "out_for_delivery" ? "Out for Delivery" : "Delivered"}`;
+  } else if (event.event_type === "processing_status") {
+    html = buildProcessingCompleteEmailHtml({ order });
+    subject = `SilkFreedom Order ${orderRef} — Ready to Ship`;
+  } else if (event.event_type === "delivery_exception_set") {
+    html = buildDeliveryExceptionEmailHtml({ order, reason: event.new_value ?? "Delivery delayed" });
+    subject = `SilkFreedom Order ${orderRef} — Delivery Exception`;
+  } else if (event.event_type === "hold_placed") {
+    const reasonLabel = event.new_value ?? "On hold";
+    html = buildShipmentHoldEmailHtml({ order, reason: reasonLabel, customerMessage: event.customer_message });
+    subject = `SilkFreedom Order ${orderRef} — Shipment On Hold`;
+  } else {
+    html = buildOrderCancelledEmailHtml({ order });
+    subject = `SilkFreedom Order ${orderRef} — Cancelled`;
+  }
+
+  const result = await sendEmail({
+    to: order.customer.email,
+    subject,
+    html,
+    replyTo: getAdminEmail(),
+  });
+
+  if (!result.ok) {
+    await releaseEventEmailClaim(eventId);
+    return { sent: false, error: result.error };
+  }
+
+  return { sent: true };
 }

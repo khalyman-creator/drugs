@@ -13,6 +13,9 @@ type OrderRow = {
   total: number;
   totalFormatted: string;
   status: string;
+  control_status: string;
+  processing_status: string;
+  shipping_status: string;
   created_at: string;
 };
 
@@ -1033,38 +1036,47 @@ export function AdminDashboard({
           {orders.length === 0 ? (
             <p className="p-8 text-center text-gray-400">No orders yet</p>
           ) : (
-            <table className="w-full text-left text-sm">
-              <thead className="border-b bg-gray-50">
-                <tr>
-                  <th className="p-4 font-medium">Order</th>
-                  <th className="p-4 font-medium">Customer</th>
-                  <th className="p-4 font-medium">Total</th>
-                  <th className="p-4 font-medium">Status</th>
-                  <th className="p-4 font-medium"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {orders.map((o) => (
-                  <tr key={o.id} className="hover:bg-gray-50">
-                    <td className="p-4 font-mono text-xs">{o.order_number}</td>
-                    <td className="p-4">
-                      <p>{o.customer_name}</p>
-                      <p className="text-xs text-gray-400">{o.customer_email}</p>
-                    </td>
-                    <td className="p-4">{o.totalFormatted}</td>
-                    <td className="p-4 capitalize">{o.status}</td>
-                    <td className="p-4">
-                      <Link
-                        href={`/success?orderId=${o.id}`}
-                        className="text-brand-600 hover:underline"
-                      >
-                        View
-                      </Link>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b bg-gray-50">
+                  <tr>
+                    <th className="p-4 font-medium">Order</th>
+                    <th className="p-4 font-medium">Customer</th>
+                    <th className="p-4 font-medium">Total</th>
+                    <th className="p-4 font-medium">Status</th>
+                    <th className="p-4 font-medium"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y">
+                  {orders.map((o) => (
+                    <tr key={o.id} className="hover:bg-gray-50">
+                      <td className="p-4 font-mono text-xs">{o.order_number}</td>
+                      <td className="p-4">
+                        <p>{o.customer_name}</p>
+                        <p className="text-xs text-gray-400">{o.customer_email}</p>
+                      </td>
+                      <td className="p-4">{o.totalFormatted}</td>
+                      <td className="p-4">
+                        <span className="capitalize">{o.status}</span>
+                        {o.control_status !== "active" && (
+                          <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold capitalize text-amber-800">
+                            {o.control_status.replace("_", " ")}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        <Link
+                          href={`/admin/orders/${o.id}`}
+                          className="text-brand-600 hover:underline"
+                        >
+                          View
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       )}

@@ -1,5 +1,6 @@
 import { formatPrice } from "@/lib/format";
 import type { OrderItemRecord, OrderWithDetails } from "@/lib/db/supabase-orders";
+import type { ShipmentRecord } from "@/lib/db/supabase-shipments";
 import { escapeHtml } from "./escape-html";
 import { formatEmailDate, formatOrderReference } from "./order-ref";
 
@@ -305,4 +306,155 @@ export function buildReceiptEmailHtml(input: {
     body,
     orderRef,
   });
+}
+
+function trackOrderCta(orderRef: string): string {
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">
+      <tr>
+        <td align="center">
+          <a href="/track-order?ref=${encodeURIComponent(orderRef)}" style="display:inline-block;background:${BRAND};color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:12px 28px;border-radius:8px;">Track Your Order</a>
+        </td>
+      </tr>
+    </table>`;
+}
+
+const MILESTONE_COPY: Record<
+  "shipped" | "out_for_delivery" | "delivered",
+  { title: string; badge: string; badgeColor: string; heading: string; sub: string }
+> = {
+  shipped: {
+    title: "Order Shipped",
+    badge: "Shipped",
+    badgeColor: BRAND_DARK,
+    heading: "Your order is on its way",
+    sub: "It's left our hands and is now with the carrier.",
+  },
+  out_for_delivery: {
+    title: "Out for Delivery",
+    badge: "Out for Delivery",
+    badgeColor: BRAND_DARK,
+    heading: "Your order is out for delivery",
+    sub: "It should arrive today.",
+  },
+  delivered: {
+    title: "Order Delivered",
+    badge: "Delivered",
+    badgeColor: "#065f46",
+    heading: "Your order has been delivered",
+    sub: "Thanks for shopping with us.",
+  },
+};
+
+export function buildShippingMilestoneEmailHtml(input: {
+  order: OrderWithDetails;
+  shipment: ShipmentRecord | null;
+  milestone: "shipped" | "out_for_delivery" | "delivered";
+}): string {
+  const { order, shipment, milestone } = input;
+  const orderRef = formatOrderReference(order.id);
+  const copy = MILESTONE_COPY[milestone];
+
+  const body = `
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px 20px;margin-bottom:24px;text-align:center;">
+      <div style="font-size:18px;font-weight:700;color:#991b1b;">${escapeHtml(copy.heading)}</div>
+      <div style="font-size:14px;color:#b91c1c;margin-top:4px;">${escapeHtml(copy.sub)}</div>
+    </div>
+
+    ${shipment?.carrier || shipment?.tracking_number ? `
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:24px;">
+      <tr>
+        <td style="padding:16px 20px;font-size:14px;color:#374151;line-height:1.8;">
+          ${shipment.carrier ? `<strong style="color:#111827;">Carrier:</strong> ${escapeHtml(shipment.carrier)}<br />` : ""}
+          ${shipment.tracking_number ? `<strong style="color:#111827;">Tracking #:</strong> ${escapeHtml(shipment.tracking_number)}<br />` : ""}
+          ${shipment.estimated_delivery ? `<strong style="color:#111827;">Estimated delivery:</strong> ${escapeHtml(shipment.estimated_delivery)}` : ""}
+        </td>
+      </tr>
+    </table>` : ""}
+
+    ${lineItemsTable(order.items)}
+    ${trackOrderCta(orderRef)}`;
+
+  return emailShell({ title: copy.title, badge: copy.badge, badgeColor: copy.badgeColor, body, orderRef });
+}
+
+export function buildProcessingCompleteEmailHtml(input: { order: OrderWithDetails }): string {
+  const order = input.order;
+  const orderRef = formatOrderReference(order.id);
+
+  const body = `
+    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px 20px;margin-bottom:24px;text-align:center;">
+      <div style="font-size:18px;font-weight:700;color:#991b1b;">Your order is ready to ship</div>
+      <div style="font-size:14px;color:#b91c1c;margin-top:4px;">We're finalizing shipment now — you'll get a shipping confirmation soon.</div>
+    </div>
+
+    ${lineItemsTable(order.items)}
+    ${trackOrderCta(orderRef)}`;
+
+  return emailShell({ title: "Order Ready to Ship", badge: "Processing Complete", badgeColor: BRAND_DARK, body, orderRef });
+}
+
+export function buildDeliveryExceptionEmailHtml(input: {
+  order: OrderWithDetails;
+  reason: string;
+}): string {
+  const order = input.order;
+  const orderRef = formatOrderReference(order.id);
+
+  const body = `
+    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px 20px;margin-bottom:24px;text-align:center;">
+      <div style="font-size:18px;font-weight:700;color:#92400e;">⚠️ Delivery Exception</div>
+      <div style="font-size:14px;color:#b45309;margin-top:8px;">${escapeHtml(input.reason)}</div>
+    </div>
+
+    <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.6;">
+      There's a delay with your delivery. We're on it — check the tracking page for updates, or reply to this email if you have questions.
+    </p>
+
+    ${trackOrderCta(orderRef)}`;
+
+  return emailShell({ title: "Delivery Exception", badge: "Exception", badgeColor: "#b45309", body, orderRef });
+}
+
+export function buildShipmentHoldEmailHtml(input: {
+  order: OrderWithDetails;
+  reason: string;
+  customerMessage?: string | null;
+}): string {
+  const order = input.order;
+  const orderRef = formatOrderReference(order.id);
+
+  const body = `
+    <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:16px 20px;margin-bottom:24px;text-align:center;">
+      <div style="font-size:18px;font-weight:700;color:#92400e;">⚠️ Shipment On Hold</div>
+      <div style="font-size:14px;color:#b45309;margin-top:8px;">${escapeHtml(input.reason)}</div>
+    </div>
+
+    ${input.customerMessage ? `
+    <p style="margin:0 0 20px;color:#374151;font-size:14px;line-height:1.6;">
+      ${escapeHtml(input.customerMessage)}
+    </p>` : ""}
+
+    ${trackOrderCta(orderRef)}`;
+
+  return emailShell({ title: "Shipment On Hold", badge: "On Hold", badgeColor: "#b45309", body, orderRef });
+}
+
+export function buildOrderCancelledEmailHtml(input: { order: OrderWithDetails }): string {
+  const order = input.order;
+  const orderRef = formatOrderReference(order.id);
+
+  const body = `
+    <div style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;padding:16px 20px;margin-bottom:24px;text-align:center;">
+      <div style="font-size:18px;font-weight:700;color:#111827;">Order Cancelled</div>
+      <div style="font-size:14px;color:#6b7280;margin-top:4px;">This order has been cancelled.</div>
+    </div>
+
+    ${lineItemsTable(order.items)}
+
+    <p style="margin:24px 0 0;color:#6b7280;font-size:13px;line-height:1.6;text-align:center;">
+      If you weren't expecting this, reply to this email and we'll help sort it out.
+    </p>`;
+
+  return emailShell({ title: "Order Cancelled", badge: "Cancelled", badgeColor: "#6b7280", body, orderRef });
 }

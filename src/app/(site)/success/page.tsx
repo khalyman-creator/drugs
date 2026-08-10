@@ -79,6 +79,14 @@ export default async function SuccessPage({
         <Link href="/products" className="btn-primary">
           Continue shopping
         </Link>
+        {orderRef && (
+          <Link
+            href={`/track-order?ref=${encodeURIComponent(orderRef)}`}
+            className="btn-outline"
+          >
+            Track this order
+          </Link>
+        )}
         <Link href="/" className="text-sm text-gray-500 hover:underline">
           Back to home
         </Link>

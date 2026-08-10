@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { formatOrderReference } from "@/lib/email/order-ref";
 import type { CustomerRecord } from "./supabase-customers";
+import type { ControlStatus, ProcessingStatus, ShippingStatus } from "@/lib/shipping-status";
 
 export type OrderStatus =
   | "pending"
@@ -31,6 +32,9 @@ export type OrderRecord = {
   shipping: number;
   total: number;
   status: OrderStatus;
+  control_status: ControlStatus;
+  processing_status: ProcessingStatus;
+  shipping_status: ShippingStatus;
   created_at: string;
   updated_at: string;
 };
@@ -141,13 +145,109 @@ export async function getOrderById(id: string): Promise<OrderWithDetails | null>
   };
 }
 
+/**
+ * Looks up orders by the 8-hex-char prefix customers see as their order
+ * reference (see order-ref.ts). Usually returns exactly one order; can
+ * return more than one on a (rare, ~1-in-4-billion-per-pair) prefix
+ * collision, which callers should resolve with a secondary check (e.g.
+ * matching email) rather than ever exposing multiple orders to an
+ * anonymous lookup.
+ */
+export async function findOrdersByReferencePrefix(
+  prefix: string
+): Promise<OrderWithDetails[]> {
+  const supabase = getSupabaseAdmin();
+
+  // Uses the find_orders_by_reference_prefix() SQL function (see migration
+  // 009) so the lookup goes through the functional index on orders instead
+  // of scanning every order into app memory.
+  const { data: orders, error } = await supabase.rpc("find_orders_by_reference_prefix", {
+    prefix,
+  });
+
+  if (error) throw error;
+
+  const results = await Promise.all(
+    ((orders ?? []) as OrderRecord[]).map(async (order) => {
+      const [{ data: items, error: itemsError }, { data: customer, error: customerError }] =
+        await Promise.all([
+          supabase.from("order_items").select("*").eq("order_id", order.id),
+          supabase.from("customers").select("*").eq("id", order.customer_id).maybeSingle(),
+        ]);
+
+      if (itemsError) throw itemsError;
+      if (customerError) throw customerError;
+
+      return {
+        ...order,
+        customer: (customer as CustomerRecord | null) ?? null,
+        items: (items ?? []) as OrderItemRecord[],
+      };
+    })
+  );
+
+  return results;
+}
+
 export async function finalizeOrderPaid(id: string): Promise<OrderRecord | null> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("orders")
-    .update({ status: "paid", updated_at: new Date().toISOString() })
+    .update({
+      status: "paid",
+      processing_status: "payment_confirmed",
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", id)
     .in("status", ["pending", "processing"])
+    .select("*")
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as OrderRecord | null) ?? null;
+}
+
+export async function updateOrderControlStatus(
+  orderId: string,
+  newStatus: ControlStatus
+): Promise<OrderRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("orders")
+    .update({ control_status: newStatus, updated_at: new Date().toISOString() })
+    .eq("id", orderId)
+    .select("*")
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as OrderRecord | null) ?? null;
+}
+
+export async function updateOrderProcessingStatus(
+  orderId: string,
+  newStatus: ProcessingStatus
+): Promise<OrderRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("orders")
+    .update({ processing_status: newStatus, updated_at: new Date().toISOString() })
+    .eq("id", orderId)
+    .select("*")
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as OrderRecord | null) ?? null;
+}
+
+export async function updateOrderShippingStatus(
+  orderId: string,
+  newStatus: ShippingStatus
+): Promise<OrderRecord | null> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("orders")
+    .update({ shipping_status: newStatus, updated_at: new Date().toISOString() })
+    .eq("id", orderId)
     .select("*")
     .maybeSingle();
 
@@ -162,6 +262,9 @@ export type AdminOrderSummary = {
   customer_email: string;
   total: number;
   status: OrderStatus;
+  control_status: ControlStatus;
+  processing_status: ProcessingStatus;
+  shipping_status: ShippingStatus;
   created_at: string;
 };
 
@@ -169,7 +272,9 @@ export async function getAllOrdersForAdmin(): Promise<AdminOrderSummary[]> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("orders")
-    .select("id, total, status, created_at, customer:customers(full_name, email)")
+    .select(
+      "id, total, status, control_status, processing_status, shipping_status, created_at, customer:customers(full_name, email)"
+    )
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -178,6 +283,9 @@ export async function getAllOrdersForAdmin(): Promise<AdminOrderSummary[]> {
     id: string;
     total: number;
     status: OrderStatus;
+    control_status: ControlStatus;
+    processing_status: ProcessingStatus;
+    shipping_status: ShippingStatus;
     created_at: string;
     customer: { full_name: string; email: string } | null;
   }>).map((o) => ({
@@ -187,6 +295,9 @@ export async function getAllOrdersForAdmin(): Promise<AdminOrderSummary[]> {
     customer_email: o.customer?.email ?? "",
     total: Number(o.total),
     status: o.status,
+    control_status: o.control_status,
+    processing_status: o.processing_status,
+    shipping_status: o.shipping_status,
     created_at: o.created_at,
   }));
 }

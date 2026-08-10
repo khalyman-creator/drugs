@@ -11,6 +11,7 @@ export function Footer({ settings }: { settings: SiteSettings }) {
         <div className="mt-4 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-600">
           <Link href="/products" className="hover:text-brand-700">Shop</Link>
           <Link href="/cart" className="hover:text-brand-700">Cart</Link>
+          <Link href="/track-order" className="hover:text-brand-700">Track Order</Link>
           <Link href="/contact" className="hover:text-brand-700">Contact</Link>
           <Link href="/about" className="hover:text-brand-700">About</Link>
           <Link href="/shipping" className="hover:text-brand-700">Shipping</Link>

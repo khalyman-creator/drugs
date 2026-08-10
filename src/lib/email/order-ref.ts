@@ -1,5 +1,5 @@
 export function formatOrderReference(orderId: string): string {
-  return `RD-${orderId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
+  return `SLK-${orderId.replace(/-/g, "").slice(0, 8).toUpperCase()}`;
 }
 
 export function formatEmailDate(iso: string): string {

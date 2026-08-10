@@ -10,6 +10,7 @@ import {
   findPaymentByOrderId,
   updatePaymentRecord,
 } from "@/lib/db/supabase-payments";
+import { recordOrderStatusEvent } from "@/lib/db/supabase-order-events";
 import { isSupabaseConfigured } from "@/lib/env";
 import {
   ensureOrderReceiptEmail,
@@ -124,6 +125,17 @@ export async function processCheckout(input: {
 export async function markOrderPaid(orderId: string): Promise<void> {
   const transitioned = await finalizeOrderPaid(orderId);
   if (!transitioned) return;
+
+  // No customer email fires from this event — the existing receipt email
+  // already covers this moment; this just gives the new tracking timeline
+  // an entry for "Payment Confirmed".
+  await recordOrderStatusEvent({
+    orderId,
+    eventType: "processing_status",
+    previousValue: "order_received",
+    newValue: "payment_confirmed",
+    createdBy: "system",
+  });
 }
 
 export async function markOrderFailed(orderId: string): Promise<void> {
