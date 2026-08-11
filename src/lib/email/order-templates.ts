@@ -1,4 +1,5 @@
 import { formatPrice } from "@/lib/format";
+import { getSiteUrl } from "@/lib/env";
 import type { OrderItemRecord, OrderWithDetails } from "@/lib/db/supabase-orders";
 import type { ShipmentRecord } from "@/lib/db/supabase-shipments";
 import { escapeHtml } from "./escape-html";
@@ -165,7 +166,8 @@ export function buildInvoiceEmailHtml(input: {
     <p style="margin:24px 0 0;color:#6b7280;font-size:13px;line-height:1.6;text-align:center;">
       This invoice was generated when you placed your order. Complete payment via our secure NOWPayments checkout.
       ${input.transactionId ? `<br />Payment reference: <strong>${escapeHtml(input.transactionId)}</strong>` : ""}
-    </p>`;
+    </p>
+    ${trackOrderCta(orderRef)}`;
 
   return emailShell({
     title: "Invoice",
@@ -366,7 +368,8 @@ export function buildReceiptEmailHtml(input: {
     <p style="margin:24px 0 0;color:#6b7280;font-size:13px;line-height:1.6;text-align:center;">
       This receipt confirms your payment has been received and your order is being processed.
       Keep this email for your records.
-    </p>`;
+    </p>
+    ${trackOrderCta(orderRef)}`;
 
   return emailShell({
     title: "Payment Receipt",
@@ -378,11 +381,18 @@ export function buildReceiptEmailHtml(input: {
 }
 
 function trackOrderCta(orderRef: string): string {
+  const trackUrl = `${getSiteUrl().replace(/\/$/, "")}/track-order?ref=${encodeURIComponent(orderRef)}`;
   return `
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">
       <tr>
         <td align="center">
-          <a href="/track-order?ref=${encodeURIComponent(orderRef)}" style="display:inline-block;background:${BRAND};color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:12px 28px;border-radius:8px;">Track Your Order</a>
+          <p style="margin:0 0 12px;color:#6b7280;font-size:13px;">
+            Tracking number: <strong style="color:#111827;letter-spacing:0.03em;">${escapeHtml(orderRef)}</strong>
+          </p>
+          <a href="${trackUrl}" style="display:inline-block;background:${BRAND};color:#ffffff;text-decoration:none;font-size:15px;font-weight:700;padding:12px 28px;border-radius:8px;">Track Your Order</a>
+          <p style="margin:10px 0 0;color:#9ca3af;font-size:12px;">
+            Or enter it manually at ${escapeHtml(getSiteUrl().replace(/\/$/, ""))}/track-order
+          </p>
         </td>
       </tr>
     </table>`;
