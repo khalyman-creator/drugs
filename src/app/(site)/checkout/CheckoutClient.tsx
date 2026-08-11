@@ -16,14 +16,23 @@ const SHIPPING_OPTIONS = {
 } as const;
 type ShippingMethod = keyof typeof SHIPPING_OPTIONS;
 
+const EMPTY_FORM = { name: "", email: "", address: "", city: "", zip: "", country: "" };
+
 function formFromPendingOrder(pendingOrder: PendingOrder | null) {
-  if (!pendingOrder) {
-    return { name: "", email: "", address: "", city: "", zip: "" };
-  }
+  if (!pendingOrder) return EMPTY_FORM;
+
   const parts = pendingOrder.shippingAddress.split(", ");
-  const [address, city, zip] =
-    parts.length === 3 ? parts : [pendingOrder.shippingAddress, "", ""];
-  return { name: pendingOrder.customerName, email: pendingOrder.customerEmail, address, city, zip };
+  const base = { name: pendingOrder.customerName, email: pendingOrder.customerEmail };
+
+  if (parts.length === 4) {
+    const [address, city, zip, country] = parts;
+    return { ...base, address, city, zip, country };
+  }
+  if (parts.length === 3) {
+    const [address, city, zip] = parts;
+    return { ...base, address, city, zip, country: "" };
+  }
+  return { ...base, address: pendingOrder.shippingAddress, city: "", zip: "", country: "" };
 }
 
 function PaymentStatusBadge({ status }: { status: string }) {
@@ -387,13 +396,14 @@ export default function CheckoutClient({ pendingOrder }: { pendingOrder: Pending
           <div className="rounded-xl border border-gray-200 bg-white p-5">
             <h2 className="font-semibold">Shipping</h2>
             <div className="mt-4 space-y-3">
-              {(["name", "email", "address", "city", "zip"] as const).map((field) => (
+              {(["name", "email", "address", "city", "zip", "country"] as const).map((field) => (
                 <div key={field}>
                   <label className="mb-1 block text-sm font-medium capitalize text-gray-700">
                     {field === "zip" ? "ZIP Code" : field}
+                    {field === "country" && <span className="font-normal text-gray-400"> (optional)</span>}
                   </label>
                   <input
-                    required
+                    required={field !== "country"}
                     type={field === "email" ? "email" : "text"}
                     value={form[field]}
                     onChange={(e) => setForm({ ...form, [field]: e.target.value })}

@@ -43,8 +43,12 @@ function parseCustomer(raw: unknown) {
     typeof (raw as { zip?: string }).zip === "string"
       ? (raw as { zip: string }).zip.trim()
       : "";
+  const country =
+    typeof (raw as { country?: string }).country === "string"
+      ? (raw as { country: string }).country.trim()
+      : "";
 
-  const shippingAddress = [address, city, zip].filter(Boolean).join(", ");
+  const shippingAddress = [address, city, zip, country].filter(Boolean).join(", ");
 
   return {
     fullName,
