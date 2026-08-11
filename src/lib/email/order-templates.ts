@@ -235,6 +235,75 @@ export function buildAdminOrderNotificationHtml(input: {
   });
 }
 
+export function buildAdminPaymentConfirmedHtml(input: {
+  order: OrderWithDetails;
+  transactionId?: string;
+  paidAt?: string;
+}): string {
+  const order = input.order;
+  const customer = order.customer;
+  const orderRef = formatOrderReference(order.id);
+  const paidDate = input.paidAt ? formatEmailDate(input.paidAt) : formatEmailDate(order.updated_at);
+
+  const body = `
+    <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:8px;padding:16px 20px;margin-bottom:24px;text-align:center;">
+      <div style="font-size:32px;line-height:1;margin-bottom:8px;">✓</div>
+      <div style="font-size:18px;font-weight:700;color:#065f46;">Payment confirmed — safe to ship</div>
+      <div style="font-size:14px;color:#047857;margin-top:4px;">This is the follow-up to the earlier "New order placed" email.</div>
+    </div>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:24px;">
+      <tr>
+        <td style="padding:16px 20px;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="width:50%;vertical-align:top;">
+                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Customer</div>
+                <div style="font-size:15px;font-weight:600;color:#111827;">${escapeHtml(customer?.full_name ?? "Customer")}</div>
+                <div style="font-size:14px;color:#374151;margin-top:4px;">${escapeHtml(customer?.email ?? "")}</div>
+                ${customer?.phone ? `<div style="font-size:14px;color:#374151;margin-top:2px;">${escapeHtml(customer.phone)}</div>` : ""}
+              </td>
+              <td style="width:50%;vertical-align:top;text-align:right;">
+                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Payment Date</div>
+                <div style="font-size:14px;color:#111827;">${escapeHtml(paidDate)}</div>
+                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-top:12px;margin-bottom:4px;">Status</div>
+                <div style="font-size:14px;color:#065f46;font-weight:600;">Paid in Full</div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    ${customer?.shipping_address ? `
+    <p style="margin:0 0 20px;color:#374151;font-size:14px;">
+      <strong style="color:#111827;">Ship to:</strong><br />
+      ${escapeHtml(customer.shipping_address)}
+    </p>` : ""}
+
+    ${lineItemsTable(order.items)}
+    ${totalsBlock(Number(order.subtotal), Number(order.shipping), Number(order.total))}
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;background:#f9fafb;border-radius:8px;border:1px solid #e5e7eb;">
+      <tr>
+        <td style="padding:16px 20px;font-size:13px;color:#374151;line-height:1.8;">
+          <strong style="color:#111827;">Payment confirmation</strong><br />
+          Method: Crypto (NOWPayments)<br />
+          ${input.transactionId ? `Transaction ID: <strong>${escapeHtml(input.transactionId)}</strong><br />` : ""}
+          Amount paid: <strong>${formatPrice(Number(order.total))}</strong>
+        </td>
+      </tr>
+    </table>`;
+
+  return emailShell({
+    title: "Payment Confirmed",
+    badge: "Paid",
+    badgeColor: "#065f46",
+    body,
+    orderRef,
+  });
+}
+
 export function buildReceiptEmailHtml(input: {
   order: OrderWithDetails;
   transactionId?: string;

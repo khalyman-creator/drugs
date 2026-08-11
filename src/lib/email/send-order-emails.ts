@@ -14,6 +14,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { getAdminEmail } from "@/lib/env";
 import {
   buildAdminOrderNotificationHtml,
+  buildAdminPaymentConfirmedHtml,
   buildDeliveryExceptionEmailHtml,
   buildInvoiceEmailHtml,
   buildOrderCancelledEmailHtml,
@@ -25,7 +26,11 @@ import {
 import { formatOrderReference } from "./order-ref";
 import { isEmailConfigured, sendEmail } from "./resend";
 
-type EmailField = "invoice_email_sent_at" | "receipt_email_sent_at" | "admin_notified_at";
+type EmailField =
+  | "invoice_email_sent_at"
+  | "receipt_email_sent_at"
+  | "admin_notified_at"
+  | "admin_payment_confirmed_notified_at";
 
 /**
  * Atomically claims the right to send this email — the WHERE guard is
@@ -207,16 +212,68 @@ export async function sendOrderReceiptEmail(input: {
   return { sent: true };
 }
 
-/** Send receipt when payment confirmed (webhook or success page fallback). */
+/** Notify the seller that payment cleared — the promised follow-up to the "New order placed" email. */
+export async function sendAdminPaymentConfirmedNotification(input: {
+  orderId: string;
+  transactionId?: string;
+  paidAt?: string;
+}): Promise<{ sent: boolean; error?: string }> {
+  if (!isEmailConfigured()) {
+    return { sent: false, error: "RESEND_API_KEY not configured" };
+  }
+
+  const order = await getOrderById(input.orderId);
+  if (!order) {
+    return { sent: false, error: "Order not found" };
+  }
+
+  if (order.status !== "paid") {
+    return { sent: false, error: "Order is not paid yet" };
+  }
+
+  const payment = await findPaymentByOrderId(input.orderId);
+  if (!payment) {
+    return { sent: false, error: "Payment record not found" };
+  }
+
+  const claimed = await claimEmailSend(payment, "admin_payment_confirmed_notified_at");
+  if (!claimed) {
+    return { sent: false, error: "Admin already notified of payment" };
+  }
+
+  const orderRef = formatOrderReference(order.id);
+  const html = buildAdminPaymentConfirmedHtml({
+    order,
+    transactionId: input.transactionId ?? payment.provider_payment_id ?? undefined,
+    paidAt: input.paidAt,
+  });
+
+  const result = await sendEmail({
+    to: getAdminEmail(),
+    subject: `Payment confirmed ${orderRef} — safe to ship`,
+    html,
+    replyTo: order.customer?.email,
+  });
+
+  if (!result.ok) {
+    await releaseEmailClaim(payment.id, "admin_payment_confirmed_notified_at");
+    return { sent: false, error: result.error };
+  }
+
+  return { sent: true };
+}
+
+/** Send receipt when payment confirmed (webhook or success page fallback) — notifies both buyer and seller. */
 export async function ensureOrderReceiptEmail(orderId: string): Promise<void> {
   const payment = await findPaymentByOrderId(orderId);
-  await sendOrderReceiptEmail({
-    orderId,
-    transactionId: payment?.provider_payment_id ?? undefined,
-    paidAt:
-      typeof payment?.metadata?.paid_at === "string"
-        ? payment.metadata.paid_at
-        : undefined,
+  const transactionId = payment?.provider_payment_id ?? undefined;
+  const paidAt =
+    typeof payment?.metadata?.paid_at === "string" ? payment.metadata.paid_at : undefined;
+
+  await sendOrderReceiptEmail({ orderId, transactionId, paidAt });
+
+  sendAdminPaymentConfirmedNotification({ orderId, transactionId, paidAt }).catch((err) => {
+    console.error("[ensureOrderReceiptEmail] Admin payment notification failed:", err);
   });
 }
 
