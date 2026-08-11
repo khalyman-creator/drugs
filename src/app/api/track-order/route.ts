@@ -125,6 +125,7 @@ export async function POST(req: NextRequest) {
       newValue: e.new_value,
       customerMessage: e.customer_message,
       createdAt: e.created_at,
+      occurredAt: e.occurred_at,
     })),
   });
 }

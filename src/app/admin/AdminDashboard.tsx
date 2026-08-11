@@ -7,8 +7,12 @@ import type { Product, Review, Section, SiteSettings } from "@/lib/types";
 import {
   CONTROL_STATUSES,
   CONTROL_LABELS,
+  CONTROL_TONE,
   PROCESSING_STATUSES,
   PROCESSING_LABELS,
+  ORDER_STATUS_TONE,
+  toneClass,
+  type ControlStatus,
 } from "@/lib/shipping-status";
 
 type OrderRow = {
@@ -1124,7 +1128,13 @@ export function AdminDashboard({
                     <tr key={o.id} className="hover:bg-gray-50">
                       <td className="p-4">
                         <p className="font-mono text-xs">{o.order_number}</p>
-                        <p className="mt-0.5 text-xs capitalize text-gray-400">{o.status}</p>
+                        <span
+                          className={`mt-0.5 inline-block rounded-full border px-2 py-0.5 text-xs font-semibold capitalize ${toneClass(
+                            ORDER_STATUS_TONE[o.status] ?? "neutral"
+                          )}`}
+                        >
+                          {o.status}
+                        </span>
                       </td>
                       <td className="p-4">
                         <p>{o.customer_name}</p>
@@ -1143,11 +1153,9 @@ export function AdminDashboard({
                               e.target.value
                             )
                           }
-                          className={`rounded-lg border px-2 py-1.5 text-xs font-semibold disabled:opacity-60 ${
-                            o.control_status !== "active"
-                              ? "border-amber-200 bg-amber-50 text-amber-800"
-                              : "border-gray-200 bg-white text-gray-700"
-                          }`}
+                          className={`rounded-lg border px-2 py-1.5 text-xs font-semibold disabled:opacity-60 ${toneClass(
+                            CONTROL_TONE[o.control_status as ControlStatus] ?? "neutral"
+                          )}`}
                         >
                           {CONTROL_STATUSES.map((s) => (
                             <option key={s} value={s}>

@@ -19,6 +19,7 @@ export type OrderStatusEvent = {
   customer_message: string | null;
   created_by: "admin" | "system";
   email_sent_at: string | null;
+  occurred_at: string;
   created_at: string;
 };
 
@@ -30,6 +31,7 @@ export async function recordOrderStatusEvent(input: {
   reason?: string | null;
   customerMessage?: string | null;
   createdBy?: "admin" | "system";
+  occurredAt?: string | null;
 }): Promise<OrderStatusEvent> {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -42,6 +44,7 @@ export async function recordOrderStatusEvent(input: {
       reason: input.reason ?? null,
       customer_message: input.customerMessage ?? null,
       created_by: input.createdBy ?? "admin",
+      ...(input.occurredAt ? { occurred_at: input.occurredAt } : {}),
     })
     .select("*")
     .single();
@@ -56,7 +59,7 @@ export async function listOrderStatusEvents(orderId: string): Promise<OrderStatu
     .from("order_status_events")
     .select("*")
     .eq("order_id", orderId)
-    .order("created_at", { ascending: true });
+    .order("occurred_at", { ascending: true });
 
   if (error) throw error;
   return (data ?? []) as OrderStatusEvent[];

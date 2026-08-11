@@ -12,20 +12,120 @@ import type { PaymentRecord } from "@/lib/db/supabase-payments";
 import {
   CONTROL_STATUSES,
   CONTROL_LABELS,
+  CONTROL_TONE,
   PROCESSING_STATUSES,
   PROCESSING_LABELS,
+  PROCESSING_TONE,
   SHIPPING_STATUSES,
   SHIPPING_LABELS,
   SHIPPING_ICONS,
+  SHIPPING_TONE,
+  ORDER_STATUS_TONE,
   HOLD_REASONS,
   HOLD_REASON_LABELS,
+  toneClass,
   type ControlStatus,
   type ProcessingStatus,
   type ShippingStatus,
   type HoldReason,
+  type StatusTone,
 } from "@/lib/shipping-status";
 
 const SELECTABLE_SHIPPING_STATUSES = SHIPPING_STATUSES.filter((s) => s !== "delivery_exception");
+
+function nowDatetimeLocalValue(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function StatusChangeCard<T extends string>({
+  label,
+  currentValue,
+  options,
+  labels,
+  icons,
+  tone,
+  disabled,
+  disabledHint,
+  saving,
+  onSave,
+  footer,
+}: {
+  label: string;
+  currentValue: T;
+  options: readonly T[];
+  labels: Record<T, string>;
+  icons?: Record<T, string>;
+  tone: Record<T, StatusTone>;
+  disabled?: boolean;
+  disabledHint?: string;
+  saving: boolean;
+  onSave: (value: T, note: string, occurredAtIso: string | null) => Promise<void>;
+  footer?: React.ReactNode;
+}) {
+  const [pending, setPending] = useState<T>(currentValue);
+  useEffect(() => setPending(currentValue), [currentValue]);
+  const [note, setNote] = useState("");
+  const [backdate, setBackdate] = useState("");
+
+  const dirty = pending !== currentValue || note.trim() !== "";
+
+  async function handleSave() {
+    const occurredAtIso = backdate ? new Date(backdate).toISOString() : null;
+    await onSave(pending, note.trim(), occurredAtIso);
+    setNote("");
+    setBackdate("");
+  }
+
+  return (
+    <div className="min-w-0">
+      <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</label>
+      <select
+        value={pending}
+        disabled={disabled || saving}
+        onChange={(e) => setPending(e.target.value as T)}
+        className={`w-full rounded-xl border px-3 py-2 text-sm font-medium disabled:opacity-60 ${toneClass(tone[pending])}`}
+      >
+        {options.map((s) => (
+          <option key={s} value={s}>
+            {icons ? `${icons[s]} ` : ""}
+            {labels[s]}
+          </option>
+        ))}
+      </select>
+      {disabled && disabledHint && <p className="mt-1 text-xs text-amber-600">{disabledHint}</p>}
+      {!disabled && (
+        <div className="mt-2 space-y-2">
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Optional note"
+            rows={2}
+            className="w-full rounded-lg border px-2 py-1.5 text-xs"
+          />
+          <input
+            type="datetime-local"
+            value={backdate}
+            max={nowDatetimeLocalValue()}
+            onChange={(e) => setBackdate(e.target.value)}
+            title="Backdate this change (optional) — leave blank to log it as happening now"
+            className="w-full rounded-lg border px-2 py-1.5 text-xs text-gray-500"
+          />
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || !dirty}
+            className="w-full rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-gray-800 disabled:opacity-40"
+          >
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
+      )}
+      {footer}
+    </div>
+  );
+}
 
 function EventLabel({ event }: { event: OrderStatusEvent }) {
   switch (event.event_type) {
@@ -126,7 +226,9 @@ export function OrderDetailClient({
   async function patchStatus(
     field: "control-status" | "processing-status",
     bodyKey: "control_status" | "processing_status",
-    value: string
+    value: string,
+    reason: string,
+    occurredAt: string | null
   ) {
     setSavingField(field);
     setError("");
@@ -134,7 +236,7 @@ export function OrderDetailClient({
       const res = await fetch(`/api/admin/orders/${order.id}/${field}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ [bodyKey]: value }),
+        body: JSON.stringify({ [bodyKey]: value, reason: reason || undefined, occurred_at: occurredAt || undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -148,14 +250,14 @@ export function OrderDetailClient({
     }
   }
 
-  async function handleShippingStatusChange(newStatus: ShippingStatus) {
+  async function handleShippingStatusChange(newStatus: ShippingStatus, reason: string, occurredAt: string | null) {
     setSavingField("shipping-status");
     setError("");
     try {
       const res = await fetch(`/api/admin/orders/${order.id}/shipping-status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shipping_status: newStatus }),
+        body: JSON.stringify({ shipping_status: newStatus, reason: reason || undefined, occurred_at: occurredAt || undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -299,7 +401,13 @@ export function OrderDetailClient({
         </div>
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Payment</p>
-          <p className="mt-1 font-medium capitalize">{order.status}</p>
+          <span
+            className={`mt-1 inline-block rounded-full border px-3 py-1 text-xs font-semibold capitalize ${toneClass(
+              ORDER_STATUS_TONE[order.status] ?? "neutral"
+            )}`}
+          >
+            {order.status}
+          </span>
           {payment && (
             <>
               <p className="text-sm text-gray-500">{payment.provider}</p>
@@ -349,92 +457,77 @@ export function OrderDetailClient({
       </div>
 
       {/* Status control panel */}
-      <div className="mb-6 grid gap-4 rounded-2xl border bg-white p-6 sm:grid-cols-3">
-        <div className="min-w-0">
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-400">
-            Control Status
-          </label>
-          <select
-            value={order.control_status}
-            disabled={savingField === "control-status"}
-            onChange={(e) => patchStatus("control-status", "control_status", e.target.value)}
-            className="w-full rounded-xl border px-3 py-2 text-sm disabled:opacity-60"
-          >
-            {CONTROL_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {CONTROL_LABELS[s]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="min-w-0">
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-400">
-            Order Processing
-          </label>
-          <select
-            value={order.processing_status}
-            disabled={savingField === "processing-status"}
-            onChange={(e) => patchStatus("processing-status", "processing_status", e.target.value)}
-            className="w-full rounded-xl border px-3 py-2 text-sm disabled:opacity-60"
-          >
-            {PROCESSING_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {PROCESSING_LABELS[s]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="min-w-0">
-          <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-400">
-            Shipping Status
-          </label>
-          <select
-            value={order.shipping_status === "delivery_exception" ? "delivery_exception" : order.shipping_status}
-            disabled={savingField === "shipping-status" || !canShip}
-            onChange={(e) => handleShippingStatusChange(e.target.value as ShippingStatus)}
-            className="w-full rounded-xl border px-3 py-2 text-sm disabled:opacity-60"
-          >
-            {order.shipping_status === "delivery_exception" && (
-              <option value="delivery_exception">Delivery Exception</option>
-            )}
-            {SELECTABLE_SHIPPING_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {SHIPPING_ICONS[s]} {SHIPPING_LABELS[s]}
-              </option>
-            ))}
-          </select>
-          {!canShip && (
-            <p className="mt-1 text-xs text-amber-600">Complete order processing before shipping can start.</p>
-          )}
-          {canShip && order.shipping_status !== "delivery_exception" && (
-            <button
-              type="button"
-              onClick={() => setExceptionFormOpen((v) => !v)}
-              className="mt-2 text-xs font-semibold text-amber-700 hover:underline"
-            >
-              ⚠️ Mark Delivery Exception
-            </button>
-          )}
-          {exceptionFormOpen && (
-            <form onSubmit={handleSetException} className="mt-2 space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
-              <textarea
-                value={exceptionReason}
-                onChange={(e) => setExceptionReason(e.target.value)}
-                placeholder="Reason (shown to customer)"
-                rows={2}
-                required
-                className="w-full rounded-lg border px-2 py-1.5 text-xs"
-              />
-              <button
-                type="submit"
-                disabled={savingException}
-                className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
-              >
-                {savingException ? "Saving..." : "Set Exception"}
-              </button>
-            </form>
-          )}
-        </div>
+      <div className="mb-6 grid gap-6 rounded-2xl border bg-white p-6 sm:grid-cols-3">
+        <StatusChangeCard
+          label="Control Status"
+          currentValue={order.control_status}
+          options={CONTROL_STATUSES}
+          labels={CONTROL_LABELS}
+          tone={CONTROL_TONE}
+          saving={savingField === "control-status"}
+          onSave={(value, note, occurredAt) =>
+            patchStatus("control-status", "control_status", value, note, occurredAt)
+          }
+        />
+        <StatusChangeCard
+          label="Order Processing"
+          currentValue={order.processing_status}
+          options={PROCESSING_STATUSES}
+          labels={PROCESSING_LABELS}
+          tone={PROCESSING_TONE}
+          saving={savingField === "processing-status"}
+          onSave={(value, note, occurredAt) =>
+            patchStatus("processing-status", "processing_status", value, note, occurredAt)
+          }
+        />
+        <StatusChangeCard
+          label="Shipping Status"
+          currentValue={order.shipping_status === "delivery_exception" ? "delivery_exception" : order.shipping_status}
+          options={
+            order.shipping_status === "delivery_exception"
+              ? (["delivery_exception", ...SELECTABLE_SHIPPING_STATUSES] as ShippingStatus[])
+              : SELECTABLE_SHIPPING_STATUSES
+          }
+          labels={SHIPPING_LABELS}
+          icons={SHIPPING_ICONS}
+          tone={SHIPPING_TONE}
+          disabled={!canShip}
+          disabledHint="Complete order processing before shipping can start."
+          saving={savingField === "shipping-status"}
+          onSave={(value, note, occurredAt) => handleShippingStatusChange(value, note, occurredAt)}
+          footer={
+            <>
+              {canShip && order.shipping_status !== "delivery_exception" && (
+                <button
+                  type="button"
+                  onClick={() => setExceptionFormOpen((v) => !v)}
+                  className="mt-2 text-xs font-semibold text-amber-700 hover:underline"
+                >
+                  ⚠️ Mark Delivery Exception
+                </button>
+              )}
+              {exceptionFormOpen && (
+                <form onSubmit={handleSetException} className="mt-2 space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <textarea
+                    value={exceptionReason}
+                    onChange={(e) => setExceptionReason(e.target.value)}
+                    placeholder="Reason (shown to customer)"
+                    rows={2}
+                    required
+                    className="w-full rounded-lg border px-2 py-1.5 text-xs"
+                  />
+                  <button
+                    type="submit"
+                    disabled={savingException}
+                    className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+                  >
+                    {savingException ? "Saving..." : "Set Exception"}
+                  </button>
+                </form>
+              )}
+            </>
+          }
+        />
       </div>
 
       {/* Shipment info */}
@@ -596,7 +689,12 @@ export function OrderDetailClient({
                 </p>
                 {e.reason && <p className="text-xs text-gray-400">Note: {e.reason}</p>}
                 {e.customer_message && <p className="text-xs text-gray-500">Message: {e.customer_message}</p>}
-                <p className="text-xs text-gray-400">{new Date(e.created_at).toLocaleString()}</p>
+                <p className="text-xs text-gray-400">
+                  {new Date(e.occurred_at).toLocaleString()}
+                  {Math.abs(new Date(e.occurred_at).getTime() - new Date(e.created_at).getTime()) > 5 * 60 * 1000 && (
+                    <span className="ml-1 italic">(backdated)</span>
+                  )}
+                </p>
               </li>
             ))}
           </ul>

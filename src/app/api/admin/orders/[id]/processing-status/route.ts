@@ -16,9 +16,14 @@ export async function PATCH(
   const { id } = await params;
   const body = await req.json();
   const newStatus = body.processing_status as ProcessingStatus;
+  const reason = typeof body.reason === "string" ? body.reason.trim() || null : null;
+  const occurredAt = typeof body.occurred_at === "string" ? body.occurred_at.trim() || null : null;
 
   if (!PROCESSING_STATUSES.includes(newStatus)) {
     return NextResponse.json({ error: "Invalid processing_status" }, { status: 400 });
+  }
+  if (occurredAt && new Date(occurredAt).getTime() > Date.now()) {
+    return NextResponse.json({ error: "Cannot backdate to the future." }, { status: 400 });
   }
 
   const current = await getOrderById(id);
@@ -32,6 +37,8 @@ export async function PATCH(
     eventType: "processing_status",
     previousValue: current.processing_status,
     newValue: newStatus,
+    reason,
+    occurredAt,
   });
 
   notifyCustomerOfStatusEvent(event.id).catch((err) => {

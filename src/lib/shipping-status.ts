@@ -100,3 +100,74 @@ export function shippingStageIndex(status: ShippingStatus): number {
 export function isProcessingComplete(status: ProcessingStatus): boolean {
   return status === "processing_complete";
 }
+
+// The customer tracking page groups the pipeline into three connected
+// sections (Order / Processing / Shipping) even though "order" and
+// "processing" share one underlying DB column (processing_status) — this is
+// a purely presentational split of PROCESSING_STATUSES, not a schema change.
+export const ORDER_GROUP_STATUSES = ["order_received", "payment_confirmed"] as const satisfies readonly ProcessingStatus[];
+export const PROCESSING_GROUP_STATUSES = [
+  "processing",
+  "preparing_order",
+  "order_verification",
+  "ready_for_shipment",
+  "processing_complete",
+] as const satisfies readonly ProcessingStatus[];
+
+// Semantic color tone shared by every status badge/select across the admin
+// and customer UI — one small set of meanings (positive/warning/info/
+// negative/neutral) instead of ad-hoc colors picked per screen.
+export type StatusTone = "positive" | "warning" | "info" | "negative" | "neutral";
+
+export const TONE_CLASSES: Record<StatusTone, string> = {
+  positive: "border-green-200 bg-green-50 text-green-800",
+  warning: "border-amber-200 bg-amber-50 text-amber-800",
+  info: "border-blue-200 bg-blue-50 text-blue-800",
+  negative: "border-red-200 bg-red-50 text-red-800",
+  neutral: "border-gray-200 bg-white text-gray-700",
+};
+
+export const CONTROL_TONE: Record<ControlStatus, StatusTone> = {
+  active: "neutral",
+  on_hold: "warning",
+  cancelled: "negative",
+  completed: "positive",
+};
+
+export const PROCESSING_TONE: Record<ProcessingStatus, StatusTone> = {
+  order_received: "neutral",
+  payment_confirmed: "info",
+  processing: "info",
+  preparing_order: "info",
+  order_verification: "warning",
+  ready_for_shipment: "info",
+  processing_complete: "positive",
+};
+
+export const SHIPPING_TONE: Record<ShippingStatus, StatusTone> = {
+  not_shipped: "neutral",
+  preparing_shipment: "neutral",
+  shipped: "info",
+  in_transit: "info",
+  arrived_at_destination: "info",
+  out_for_delivery: "info",
+  delivery_exception: "negative",
+  delivered: "positive",
+};
+
+// Legacy top-level `orders.status` (payment/lifecycle) — still used for the
+// "Payment" field on the admin order page and the best-sellers RPC.
+export const ORDER_STATUS_TONE: Record<string, StatusTone> = {
+  pending: "neutral",
+  processing: "info",
+  paid: "positive",
+  failed: "negative",
+  shipped: "info",
+  delivered: "positive",
+  cancelled: "negative",
+  refunded: "warning",
+};
+
+export function toneClass(tone: StatusTone): string {
+  return TONE_CLASSES[tone];
+}

@@ -1,20 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { formatPrice } from "@/lib/format";
 import {
   CONTROL_LABELS,
-  PROCESSING_STATUSES,
+  CONTROL_TONE,
   PROCESSING_LABELS,
+  PROCESSING_TONE,
+  ORDER_GROUP_STATUSES,
+  PROCESSING_GROUP_STATUSES,
   SHIPPING_STATUSES,
   SHIPPING_LABELS,
   SHIPPING_ICONS,
-  processingStageIndex,
-  shippingStageIndex,
+  SHIPPING_TONE,
+  toneClass,
   type ControlStatus,
   type ProcessingStatus,
   type ShippingStatus,
 } from "@/lib/shipping-status";
+
+// The customer-facing shipping ladder never shows "delivery_exception" as a
+// sequential step — it's surfaced as the headline + a banner instead, so the
+// last real milestone reached before the exception can be shown as DONE
+// rather than looking like progress silently reverted.
+type ShippedStatus = Exclude<ShippingStatus, "delivery_exception">;
+const SHIPPING_LADDER_STATUSES = SHIPPING_STATUSES.filter(
+  (s): s is ShippedStatus => s !== "delivery_exception"
+);
 
 type TrackOrderItem = {
   name: string;
@@ -53,6 +65,7 @@ type TrackOrderResult = {
     newValue: string | null;
     customerMessage: string | null;
     createdAt: string;
+    occurredAt: string;
   }>;
 };
 
@@ -67,35 +80,70 @@ function Field({ label, value }: { label: string; value: string | null | undefin
   );
 }
 
-function StatusLadder<T extends string>({
-  statuses,
-  labels,
-  icons,
+// A real shipment's last-known-good status before a delivery exception was
+// set — read from the audit timeline rather than fabricated, so the ladder
+// never shows a false "not shipped" state for a package that was actually
+// well into transit when the exception was logged.
+function lastRealShippingStatus(r: TrackOrderResult): ShippedStatus {
+  if (r.shippingStatus !== "delivery_exception") return r.shippingStatus;
+  const exceptionEvent = [...r.timeline].reverse().find((e) => e.eventType === "delivery_exception_set");
+  const prev = exceptionEvent?.previousValue as ShippedStatus | undefined;
+  return prev && (SHIPPING_LADDER_STATUSES as readonly string[]).includes(prev) ? prev : "preparing_shipment";
+}
+
+function computeHeadline(r: TrackOrderResult): { icon: string; text: string } {
+  if (r.deliveryException) return { icon: "⚠️", text: "Delivery Exception" };
+  const effectiveShipping = lastRealShippingStatus(r);
+  if (effectiveShipping !== "not_shipped") {
+    return { icon: SHIPPING_ICONS[effectiveShipping], text: SHIPPING_LABELS[effectiveShipping] };
+  }
+  if (r.controlStatus === "cancelled") return { icon: "✕", text: "Order Cancelled" };
+  if (r.controlStatus === "on_hold") return { icon: "⏸", text: "Order On Hold" };
+  return { icon: "📦", text: PROCESSING_LABELS[r.processingStatus] };
+}
+
+function ConnectedStepper({
+  steps,
+  doneCount,
   currentIndex,
+  renderAfter,
 }: {
-  statuses: readonly T[];
-  labels: Record<T, string>;
-  icons?: Record<T, string>;
-  currentIndex: number;
+  steps: Array<{ key: string; label: string; icon?: string }>;
+  doneCount: number;
+  currentIndex: number | null;
+  renderAfter?: (index: number) => React.ReactNode;
 }) {
   return (
-    <ul className="space-y-2">
-      {statuses.map((s, i) => {
-        const done = i < currentIndex;
+    <ol className="relative ml-2 border-l-2 border-gray-200">
+      {steps.map((step, i) => {
+        const done = i < doneCount;
         const current = i === currentIndex;
         return (
-          <li key={s} className="flex min-w-0 items-center gap-2 text-sm">
-            <span className={`shrink-0 ${done ? "text-brand-600" : current ? "text-brand-600" : "text-gray-300"}`}>
-              {done ? "✓" : current ? "●" : "○"}
+          <li key={step.key} className="relative pb-4 pl-6 last:pb-0">
+            <span
+              className={`absolute -left-[9px] top-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${
+                done
+                  ? "bg-brand-600 text-white"
+                  : current
+                    ? "border-2 border-brand-600 bg-white"
+                    : "border-2 border-gray-300 bg-white"
+              }`}
+            >
+              {done ? "✓" : ""}
             </span>
-            {icons && <span className="shrink-0">{icons[s]}</span>}
-            <span className={`min-w-0 truncate ${current ? "font-bold text-gray-900" : done ? "text-gray-700" : "text-gray-400"}`}>
-              {labels[s]}
+            <span
+              className={`flex min-w-0 items-center gap-1.5 text-sm ${
+                current ? "font-bold text-gray-900" : done ? "text-gray-700" : "text-gray-400"
+              }`}
+            >
+              {step.icon && <span className="shrink-0">{step.icon}</span>}
+              <span className="truncate">{step.label}</span>
             </span>
+            {renderAfter?.(i)}
           </li>
         );
       })}
-    </ul>
+    </ol>
   );
 }
 
@@ -107,8 +155,7 @@ export function TrackOrderClient({ initialRef }: { initialRef?: string }) {
   const [error, setError] = useState("");
   const [result, setResult] = useState<TrackOrderResult | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function runSearch(ref: string, emailVal: string) {
     setLoading(true);
     setError("");
     setResult(null);
@@ -117,7 +164,7 @@ export function TrackOrderClient({ initialRef }: { initialRef?: string }) {
       const res = await fetch("/api/track-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ reference, email: email || undefined }),
+        body: JSON.stringify({ reference: ref, email: emailVal || undefined }),
       });
       const data = await res.json();
 
@@ -134,6 +181,64 @@ export function TrackOrderClient({ initialRef }: { initialRef?: string }) {
       setLoading(false);
     }
   }
+
+  // A "Track Your Order" link/button from an email deep-links here with
+  // ?ref=... — auto-run the lookup instead of making the customer click
+  // "Track Order" again on a form that's already filled in for them.
+  useEffect(() => {
+    if (initialRef) void runSearch(initialRef, "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    void runSearch(reference, email);
+  }
+
+  const headline = result ? computeHeadline(result) : null;
+
+  let orderCurrent: number | null = null;
+  let orderDone = 0;
+  let procCurrent: number | null = null;
+  let procDone = 0;
+  let shipCurrent: number | null = null;
+  let shipDone = 0;
+  let effectiveShipping: ShippedStatus = "not_shipped";
+
+  if (result) {
+    const allProcessing = [...ORDER_GROUP_STATUSES, ...PROCESSING_GROUP_STATUSES];
+    const globalProcIdx = allProcessing.indexOf(result.processingStatus);
+
+    effectiveShipping = lastRealShippingStatus(result);
+    const shippingIdx = SHIPPING_LADDER_STATUSES.indexOf(effectiveShipping);
+    const shippingActive = shippingIdx > 0 || result.processingStatus === "processing_complete";
+
+    if (shippingActive || globalProcIdx >= ORDER_GROUP_STATUSES.length) {
+      orderDone = ORDER_GROUP_STATUSES.length;
+    } else {
+      orderDone = globalProcIdx;
+      orderCurrent = globalProcIdx;
+    }
+
+    if (shippingActive) {
+      procDone = PROCESSING_GROUP_STATUSES.length;
+    } else if (globalProcIdx >= ORDER_GROUP_STATUSES.length) {
+      const local = globalProcIdx - ORDER_GROUP_STATUSES.length;
+      procDone = local;
+      procCurrent = local;
+    }
+
+    if (shippingActive) {
+      if (effectiveShipping === "delivered") {
+        shipDone = SHIPPING_LADDER_STATUSES.length;
+      } else {
+        shipDone = shippingIdx;
+        shipCurrent = shippingIdx;
+      }
+    }
+  }
+
+  const shipAttachIndex = shipCurrent ?? (shipDone > 0 ? shipDone - 1 : 0);
 
   return (
     <div className="mt-8">
@@ -172,40 +277,33 @@ export function TrackOrderClient({ initialRef }: { initialRef?: string }) {
         {error && <p className="text-sm text-red-600">{error}</p>}
       </form>
 
-      {result && (
+      {result && headline && (
         <div className="mt-8 space-y-6">
-          {/* Order header */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-6">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-mono text-sm font-semibold text-gray-900">{result.orderRef}</p>
-              <p className="text-xs text-gray-400">{result.createdAtFormatted}</p>
-            </div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+          {/* Headline */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 text-center">
+            <p className="font-mono text-xs text-gray-400">{result.orderRef}</p>
+            <p className="mt-2 text-2xl font-bold text-gray-900">
+              {headline.icon} {headline.text}
+            </p>
+            <p className="mt-1 text-xs text-gray-400">Placed {result.createdAtFormatted}</p>
+            <div className="mt-3 flex flex-wrap justify-center gap-2">
+              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${toneClass(CONTROL_TONE[result.controlStatus])}`}>
                 {CONTROL_LABELS[result.controlStatus]}
               </span>
-              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${toneClass(PROCESSING_TONE[result.processingStatus])}`}>
                 {PROCESSING_LABELS[result.processingStatus]}
               </span>
-              <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${toneClass(SHIPPING_TONE[result.shippingStatus])}`}>
                 {SHIPPING_ICONS[result.shippingStatus]} {SHIPPING_LABELS[result.shippingStatus]}
               </span>
             </div>
             <p className="mt-3 text-lg font-bold text-brand-700">{formatPrice(result.total)}</p>
           </div>
 
-          {result.hold && (
-            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5">
-              <p className="font-semibold text-amber-900">⚠️ Shipment On Hold</p>
-              <p className="mt-1 text-sm text-amber-800">{result.hold.reason}</p>
-              {result.hold.message && <p className="mt-2 text-sm text-amber-700">{result.hold.message}</p>}
-            </div>
-          )}
-
           {result.deliveryException && (
-            <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5">
-              <p className="font-semibold text-amber-900">⚠️ Delivery Exception</p>
-              <p className="mt-1 text-sm text-amber-800">{result.deliveryException.reason}</p>
+            <div className="rounded-2xl border border-red-300 bg-red-50 p-5">
+              <p className="font-semibold text-red-900">⚠️ Delivery Exception</p>
+              <p className="mt-1 text-sm text-red-800">{result.deliveryException.reason}</p>
             </div>
           )}
 
@@ -256,23 +354,40 @@ export function TrackOrderClient({ initialRef }: { initialRef?: string }) {
             <Field label="Estimated Delivery" value={result.shipment?.estimatedDelivery} />
           </div>
 
-          {/* Timeline */}
+          {/* Timeline — three connected groups; a line never spans a group
+              boundary, mirroring the fact that order/processing/shipping
+              are genuinely independent lanes underneath. */}
           <div className="rounded-2xl border border-gray-200 bg-white p-6">
             <h2 className="mb-4 font-semibold">Order Progress</h2>
 
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Processing</p>
-            <StatusLadder
-              statuses={PROCESSING_STATUSES}
-              labels={PROCESSING_LABELS}
-              currentIndex={processingStageIndex(result.processingStatus)}
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">Order</p>
+            <ConnectedStepper
+              steps={ORDER_GROUP_STATUSES.map((s) => ({ key: s, label: PROCESSING_LABELS[s] }))}
+              doneCount={orderDone}
+              currentIndex={orderCurrent}
+            />
+
+            <p className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wide text-gray-400">Processing</p>
+            <ConnectedStepper
+              steps={PROCESSING_GROUP_STATUSES.map((s) => ({ key: s, label: PROCESSING_LABELS[s] }))}
+              doneCount={procDone}
+              currentIndex={procCurrent}
             />
 
             <p className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wide text-gray-400">Shipping</p>
-            <StatusLadder
-              statuses={SHIPPING_STATUSES}
-              labels={SHIPPING_LABELS}
-              icons={SHIPPING_ICONS}
-              currentIndex={shippingStageIndex(result.shippingStatus)}
+            <ConnectedStepper
+              steps={SHIPPING_LADDER_STATUSES.map((s) => ({ key: s, label: SHIPPING_LABELS[s], icon: SHIPPING_ICONS[s] }))}
+              doneCount={shipDone}
+              currentIndex={shipCurrent}
+              renderAfter={(i) =>
+                result.hold && i === shipAttachIndex ? (
+                  <div className="mt-2 rounded-xl border border-amber-300 bg-amber-50 p-3">
+                    <p className="text-sm font-semibold text-amber-900">⚠️ Shipment On Hold</p>
+                    <p className="mt-1 text-xs text-amber-800">{result.hold.reason}</p>
+                    {result.hold.message && <p className="mt-1 text-xs text-amber-700">{result.hold.message}</p>}
+                  </div>
+                ) : null
+              }
             />
           </div>
         </div>
