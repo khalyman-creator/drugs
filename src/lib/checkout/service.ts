@@ -19,6 +19,7 @@ import {
   sendOrderInvoiceEmail,
 } from "@/lib/email/send-order-emails";
 import { createCheckoutPayment } from "@/lib/payments";
+import { keepAlive } from "@/lib/background-task";
 import type { CheckoutCustomerInput, CheckoutResult } from "./types";
 
 export type { CheckoutCustomerInput, CheckoutResult } from "./types";
@@ -131,17 +132,21 @@ export async function processCheckout(input: {
     throw new Error("Could not create payment session");
   }
 
-  sendOrderInvoiceEmail({
-    orderId: order.id,
-    paymentUrl: payment.paymentUrl,
-    transactionId: payment.transactionId,
-  }).catch((err) => {
-    console.error("[checkout] Invoice email failed:", err);
-  });
+  keepAlive(
+    sendOrderInvoiceEmail({
+      orderId: order.id,
+      paymentUrl: payment.paymentUrl,
+      transactionId: payment.transactionId,
+    }).catch((err) => {
+      console.error("[checkout] Invoice email failed:", err);
+    })
+  );
 
-  sendAdminOrderNotification(order.id).catch((err) => {
-    console.error("[checkout] Admin notification email failed:", err);
-  });
+  keepAlive(
+    sendAdminOrderNotification(order.id).catch((err) => {
+      console.error("[checkout] Admin notification email failed:", err);
+    })
+  );
 
   return {
     orderId: order.id,
@@ -196,7 +201,9 @@ export async function handlePaidWebhook(
 
   await markOrderPaid(orderId);
 
-  ensureOrderReceiptEmail(orderId).catch((err) => {
-    console.error("[webhook] Receipt email failed:", err);
-  });
+  keepAlive(
+    ensureOrderReceiptEmail(orderId).catch((err) => {
+      console.error("[webhook] Receipt email failed:", err);
+    })
+  );
 }

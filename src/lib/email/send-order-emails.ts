@@ -25,6 +25,7 @@ import {
 } from "./order-templates";
 import { formatOrderReference } from "./order-ref";
 import { isEmailConfigured, sendEmail } from "./resend";
+import { keepAlive } from "@/lib/background-task";
 
 type EmailField =
   | "invoice_email_sent_at"
@@ -272,9 +273,11 @@ export async function ensureOrderReceiptEmail(orderId: string): Promise<void> {
 
   await sendOrderReceiptEmail({ orderId, transactionId, paidAt });
 
-  sendAdminPaymentConfirmedNotification({ orderId, transactionId, paidAt }).catch((err) => {
-    console.error("[ensureOrderReceiptEmail] Admin payment notification failed:", err);
-  });
+  keepAlive(
+    sendAdminPaymentConfirmedNotification({ orderId, transactionId, paidAt }).catch((err) => {
+      console.error("[ensureOrderReceiptEmail] Admin payment notification failed:", err);
+    })
+  );
 }
 
 // ---------------------------------------------------------------------------

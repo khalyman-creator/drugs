@@ -3,6 +3,7 @@ import { getOrderById } from "@/lib/db/supabase-orders";
 import { getShipmentByOrderId, releaseShipmentHold, setShipmentHold } from "@/lib/db/supabase-shipments";
 import { recordOrderStatusEvent } from "@/lib/db/supabase-order-events";
 import { notifyCustomerOfStatusEvent } from "@/lib/email/send-order-emails";
+import { keepAlive } from "@/lib/background-task";
 import { HOLD_REASONS, type HoldReason } from "@/lib/shipping-status";
 import { isAdminLoggedIn } from "@/lib/auth";
 
@@ -40,9 +41,11 @@ export async function PATCH(
       reason: internalNote ?? null,
       customerMessage: customerMessage ?? null,
     });
-    notifyCustomerOfStatusEvent(event.id).catch((err) => {
-      console.error("[admin/orders/hold] Notification email failed:", err);
-    });
+    keepAlive(
+      notifyCustomerOfStatusEvent(event.id).catch((err) => {
+        console.error("[admin/orders/hold] Notification email failed:", err);
+      })
+    );
 
     return NextResponse.json(updated);
   }

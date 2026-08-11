@@ -3,6 +3,7 @@ import { getOrderById } from "@/lib/db/supabase-orders";
 import { findPaymentByOrderId, updatePaymentRecord } from "@/lib/db/supabase-payments";
 import { markOrderPaid } from "@/lib/checkout/service";
 import { ensureOrderReceiptEmail } from "@/lib/email/send-order-emails";
+import { keepAlive } from "@/lib/background-task";
 import { isAdminLoggedIn } from "@/lib/auth";
 
 /**
@@ -42,9 +43,11 @@ export async function PATCH(
 
   await markOrderPaid(id);
 
-  ensureOrderReceiptEmail(id).catch((err) => {
-    console.error("[admin/orders/mark-paid] Receipt email failed:", err);
-  });
+  keepAlive(
+    ensureOrderReceiptEmail(id).catch((err) => {
+      console.error("[admin/orders/mark-paid] Receipt email failed:", err);
+    })
+  );
 
   const updated = await getOrderById(id);
   return NextResponse.json(updated);

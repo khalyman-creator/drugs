@@ -6,6 +6,7 @@ import {
 } from "@/lib/db/supabase-shipments";
 import { recordOrderStatusEvent } from "@/lib/db/supabase-order-events";
 import { notifyCustomerOfStatusEvent } from "@/lib/email/send-order-emails";
+import { keepAlive } from "@/lib/background-task";
 import { SHIPPING_STATUSES, type ShippingStatus } from "@/lib/shipping-status";
 import { isAdminLoggedIn } from "@/lib/auth";
 
@@ -67,9 +68,11 @@ export async function PATCH(
       previousValue: current.shipping_status,
       newValue: String(body.delivery_exception_reason).trim(),
     });
-    notifyCustomerOfStatusEvent(event.id).catch((err) => {
-      console.error("[admin/orders/shipping-status] Notification email failed:", err);
-    });
+    keepAlive(
+      notifyCustomerOfStatusEvent(event.id).catch((err) => {
+        console.error("[admin/orders/shipping-status] Notification email failed:", err);
+      })
+    );
   } else {
     if (current.shipping_status === "delivery_exception") {
       await recordOrderStatusEvent({
@@ -88,9 +91,11 @@ export async function PATCH(
       reason,
       occurredAt,
     });
-    notifyCustomerOfStatusEvent(event.id).catch((err) => {
-      console.error("[admin/orders/shipping-status] Notification email failed:", err);
-    });
+    keepAlive(
+      notifyCustomerOfStatusEvent(event.id).catch((err) => {
+        console.error("[admin/orders/shipping-status] Notification email failed:", err);
+      })
+    );
   }
 
   return NextResponse.json(updated);
