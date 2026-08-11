@@ -171,6 +171,13 @@ export async function findRecentPendingOrderForRetry(input: {
   return null;
 }
 
+/** order_items/payments/shipments/order_status_events all cascade from orders.id — one delete is enough. */
+export async function deleteOrder(id: string): Promise<void> {
+  const supabase = getSupabaseAdmin();
+  const { error } = await supabase.from("orders").delete().eq("id", id);
+  if (error) throw error;
+}
+
 export async function getOrderById(id: string): Promise<OrderWithDetails | null> {
   const supabase = getSupabaseAdmin();
 

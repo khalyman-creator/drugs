@@ -8,7 +8,7 @@ import { formatPrice } from "@/lib/format";
 import { formatOrderReference } from "@/lib/email/order-ref";
 import type { PendingOrder } from "./types";
 
-const MIN_CHECKOUT = 20;
+const MIN_CHECKOUT = 100;
 export const PENDING_ORDER_STORAGE_KEY = "silkfreedom_pending_order_id";
 const SHIPPING_OPTIONS = {
   standard: { label: "Standard Shipping", price: 10 },

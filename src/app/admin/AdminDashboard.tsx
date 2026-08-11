@@ -62,6 +62,7 @@ export function AdminDashboard({
 
   const [orders, setOrders] = useState(initialOrders);
   const [savingOrderField, setSavingOrderField] = useState<string | null>(null);
+  const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
 
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [creatingSection, setCreatingSection] = useState(false);
@@ -99,6 +100,21 @@ export function AdminDashboard({
       }
     } finally {
       setSavingOrderField(null);
+    }
+  }
+
+  async function handleDeleteOrder(id: string, orderNumber: string) {
+    if (!confirm(`Delete order ${orderNumber}? This permanently removes the order, its items, payment, and shipment info. This can't be undone.`)) {
+      return;
+    }
+    setDeletingOrderId(id);
+    try {
+      const res = await fetch(`/api/admin/orders/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setOrders((prev) => prev.filter((o) => o.id !== id));
+      }
+    } finally {
+      setDeletingOrderId(null);
     }
   }
 
@@ -1186,12 +1202,22 @@ export function AdminDashboard({
                         </select>
                       </td>
                       <td className="p-4">
-                        <Link
-                          href={`/admin/orders/${o.id}`}
-                          className="text-brand-600 hover:underline"
-                        >
-                          View
-                        </Link>
+                        <div className="flex items-center gap-3">
+                          <Link
+                            href={`/admin/orders/${o.id}`}
+                            className="text-brand-600 hover:underline"
+                          >
+                            View
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteOrder(o.id, o.order_number)}
+                            disabled={deletingOrderId === o.id}
+                            className="text-red-600 hover:underline disabled:opacity-60"
+                          >
+                            {deletingOrderId === o.id ? "Deleting..." : "Delete"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

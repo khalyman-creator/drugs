@@ -25,7 +25,7 @@ import type { CheckoutCustomerInput, CheckoutResult } from "./types";
 export type { CheckoutCustomerInput, CheckoutResult } from "./types";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const MIN_CHECKOUT_USD = 20;
+const MIN_CHECKOUT_USD = 100;
 
 function validateCustomer(input: CheckoutCustomerInput): void {
   if (!input.fullName.trim() || input.fullName.length > 120) {
