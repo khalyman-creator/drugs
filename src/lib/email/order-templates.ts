@@ -56,6 +56,38 @@ function totalsBlock(subtotal: number, shipping: number, total: number): string 
     </table>`;
 }
 
+// Single stacked column always — a side-by-side layout here squeezed the date
+// into a narrow column and wrapped it across 4 lines on mobile. Email clients'
+// media query support is inconsistent, so stacking unconditionally is the
+// reliable fix rather than depending on a responsive breakpoint.
+function orderInfoCard(input: {
+  nameLabel: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  dateLabel: string;
+  date: string;
+  statusLabel: string;
+  statusValue: string;
+  statusColor: string;
+}): string {
+  return `
+    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:24px;">
+      <tr>
+        <td style="padding:16px 20px;">
+          <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">${escapeHtml(input.nameLabel)}</div>
+          <div style="font-size:15px;font-weight:600;color:#111827;">${escapeHtml(input.name)}</div>
+          <div style="font-size:14px;color:#374151;margin-top:4px;">${escapeHtml(input.email)}</div>
+          ${input.phone ? `<div style="font-size:14px;color:#374151;margin-top:2px;">${escapeHtml(input.phone)}</div>` : ""}
+          <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-top:16px;margin-bottom:4px;">${escapeHtml(input.dateLabel)}</div>
+          <div style="font-size:14px;color:#111827;">${escapeHtml(input.date)}</div>
+          <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-top:16px;margin-bottom:4px;">${escapeHtml(input.statusLabel)}</div>
+          <div style="font-size:14px;color:${input.statusColor};font-weight:600;">${escapeHtml(input.statusValue)}</div>
+        </td>
+      </tr>
+    </table>`;
+}
+
 function emailShell(input: {
   title: string;
   badge: string;
@@ -84,7 +116,7 @@ function emailShell(input: {
                     <div style="color:#fee2e2;font-size:13px;margin-top:4px;">Official order documentation</div>
                   </td>
                   <td align="right">
-                    <span style="display:inline-block;background:${input.badgeColor};color:#ffffff;font-size:11px;font-weight:700;padding:6px 12px;border-radius:999px;text-transform:uppercase;letter-spacing:0.08em;">${escapeHtml(input.badge)}</span>
+                    <span style="display:inline-block;white-space:nowrap;background:${input.badgeColor};color:#ffffff;font-size:11px;font-weight:700;padding:6px 12px;border-radius:999px;text-transform:uppercase;letter-spacing:0.08em;">${escapeHtml(input.badge)}</span>
                   </td>
                 </tr>
               </table>
@@ -124,27 +156,16 @@ export function buildInvoiceEmailHtml(input: {
   const date = formatEmailDate(order.created_at);
 
   const body = `
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:24px;">
-      <tr>
-        <td style="padding:16px 20px;">
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="width:50%;vertical-align:top;">
-                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Bill To</div>
-                <div style="font-size:15px;font-weight:600;color:#111827;">${escapeHtml(customer?.full_name ?? "Customer")}</div>
-                <div style="font-size:14px;color:#374151;margin-top:4px;">${escapeHtml(customer?.email ?? "")}</div>
-              </td>
-              <td style="width:50%;vertical-align:top;text-align:right;">
-                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Invoice Date</div>
-                <div style="font-size:14px;color:#111827;">${escapeHtml(date)}</div>
-                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-top:12px;margin-bottom:4px;">Status</div>
-                <div style="font-size:14px;color:#b45309;font-weight:600;">Payment Pending</div>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+    ${orderInfoCard({
+      nameLabel: "Bill To",
+      name: customer?.full_name ?? "Customer",
+      email: customer?.email ?? "",
+      dateLabel: "Invoice Date",
+      date,
+      statusLabel: "Status",
+      statusValue: "Payment Pending",
+      statusColor: "#b45309",
+    })}
 
     ${customer?.shipping_address ? `
     <p style="margin:0 0 20px;color:#374151;font-size:14px;">
@@ -192,28 +213,17 @@ export function buildAdminOrderNotificationHtml(input: {
       <div style="font-size:14px;color:#b91c1c;margin-top:4px;">Awaiting crypto payment confirmation — don't fulfill yet.</div>
     </div>
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:24px;">
-      <tr>
-        <td style="padding:16px 20px;">
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="width:50%;vertical-align:top;">
-                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Customer</div>
-                <div style="font-size:15px;font-weight:600;color:#111827;">${escapeHtml(customer?.full_name ?? "Customer")}</div>
-                <div style="font-size:14px;color:#374151;margin-top:4px;">${escapeHtml(customer?.email ?? "")}</div>
-                ${customer?.phone ? `<div style="font-size:14px;color:#374151;margin-top:2px;">${escapeHtml(customer.phone)}</div>` : ""}
-              </td>
-              <td style="width:50%;vertical-align:top;text-align:right;">
-                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Order Date</div>
-                <div style="font-size:14px;color:#111827;">${escapeHtml(date)}</div>
-                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-top:12px;margin-bottom:4px;">Status</div>
-                <div style="font-size:14px;color:#b45309;font-weight:600;">Payment Pending</div>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+    ${orderInfoCard({
+      nameLabel: "Customer",
+      name: customer?.full_name ?? "Customer",
+      email: customer?.email ?? "",
+      phone: customer?.phone,
+      dateLabel: "Order Date",
+      date,
+      statusLabel: "Status",
+      statusValue: "Payment Pending",
+      statusColor: "#b45309",
+    })}
 
     ${customer?.shipping_address ? `
     <p style="margin:0 0 20px;color:#374151;font-size:14px;">
@@ -254,28 +264,17 @@ export function buildAdminPaymentConfirmedHtml(input: {
       <div style="font-size:14px;color:#047857;margin-top:4px;">This is the follow-up to the earlier "New order placed" email.</div>
     </div>
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:24px;">
-      <tr>
-        <td style="padding:16px 20px;">
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="width:50%;vertical-align:top;">
-                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Customer</div>
-                <div style="font-size:15px;font-weight:600;color:#111827;">${escapeHtml(customer?.full_name ?? "Customer")}</div>
-                <div style="font-size:14px;color:#374151;margin-top:4px;">${escapeHtml(customer?.email ?? "")}</div>
-                ${customer?.phone ? `<div style="font-size:14px;color:#374151;margin-top:2px;">${escapeHtml(customer.phone)}</div>` : ""}
-              </td>
-              <td style="width:50%;vertical-align:top;text-align:right;">
-                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Payment Date</div>
-                <div style="font-size:14px;color:#111827;">${escapeHtml(paidDate)}</div>
-                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-top:12px;margin-bottom:4px;">Status</div>
-                <div style="font-size:14px;color:#065f46;font-weight:600;">Paid in Full</div>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+    ${orderInfoCard({
+      nameLabel: "Customer",
+      name: customer?.full_name ?? "Customer",
+      email: customer?.email ?? "",
+      phone: customer?.phone,
+      dateLabel: "Payment Date",
+      date: paidDate,
+      statusLabel: "Status",
+      statusValue: "Paid in Full",
+      statusColor: "#065f46",
+    })}
 
     ${customer?.shipping_address ? `
     <p style="margin:0 0 20px;color:#374151;font-size:14px;">
@@ -323,27 +322,16 @@ export function buildReceiptEmailHtml(input: {
       <div style="font-size:14px;color:#047857;margin-top:4px;">Thank you for your order, ${escapeHtml(customer?.full_name ?? "Customer")}!</div>
     </div>
 
-    <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:24px;">
-      <tr>
-        <td style="padding:16px 20px;">
-          <table width="100%" cellpadding="0" cellspacing="0">
-            <tr>
-              <td style="width:50%;vertical-align:top;">
-                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Paid By</div>
-                <div style="font-size:15px;font-weight:600;color:#111827;">${escapeHtml(customer?.full_name ?? "Customer")}</div>
-                <div style="font-size:14px;color:#374151;margin-top:4px;">${escapeHtml(customer?.email ?? "")}</div>
-              </td>
-              <td style="width:50%;vertical-align:top;text-align:right;">
-                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">Payment Date</div>
-                <div style="font-size:14px;color:#111827;">${escapeHtml(paidDate)}</div>
-                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-top:12px;margin-bottom:4px;">Status</div>
-                <div style="font-size:14px;color:${BRAND_DARK};font-weight:600;">Paid in Full</div>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+    ${orderInfoCard({
+      nameLabel: "Paid By",
+      name: customer?.full_name ?? "Customer",
+      email: customer?.email ?? "",
+      dateLabel: "Payment Date",
+      date: paidDate,
+      statusLabel: "Status",
+      statusValue: "Paid in Full",
+      statusColor: BRAND_DARK,
+    })}
 
     ${customer?.shipping_address ? `
     <p style="margin:0 0 20px;color:#374151;font-size:14px;">
@@ -400,28 +388,28 @@ function trackOrderCta(orderRef: string): string {
 
 const MILESTONE_COPY: Record<
   "shipped" | "out_for_delivery" | "delivered",
-  { title: string; badge: string; badgeColor: string; heading: string; sub: string }
+  { title: string; badge: string; badgeColor: string; heading: string; sentence: string }
 > = {
   shipped: {
     title: "Order Shipped",
-    badge: "Shipped",
+    badge: "Shipping Update",
     badgeColor: BRAND_DARK,
-    heading: "Your order is on its way",
-    sub: "It's left our hands and is now with the carrier.",
+    heading: "Your order has shipped",
+    sentence: "is on its way",
   },
   out_for_delivery: {
     title: "Out for Delivery",
-    badge: "Out for Delivery",
+    badge: "Shipping Update",
     badgeColor: BRAND_DARK,
     heading: "Your order is out for delivery",
-    sub: "It should arrive today.",
+    sentence: "should arrive today",
   },
   delivered: {
     title: "Order Delivered",
-    badge: "Delivered",
+    badge: "Shipping Update",
     badgeColor: "#065f46",
     heading: "Your order has been delivered",
-    sub: "Thanks for shopping with us.",
+    sentence: "has been delivered",
   },
 };
 
@@ -433,12 +421,13 @@ export function buildShippingMilestoneEmailHtml(input: {
   const { order, shipment, milestone } = input;
   const orderRef = formatOrderReference(order.id);
   const copy = MILESTONE_COPY[milestone];
+  const customerName = order.customer?.full_name?.trim() || "there";
 
   const body = `
-    <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px 20px;margin-bottom:24px;text-align:center;">
-      <div style="font-size:18px;font-weight:700;color:#991b1b;">${escapeHtml(copy.heading)}</div>
-      <div style="font-size:14px;color:#b91c1c;margin-top:4px;">${escapeHtml(copy.sub)}</div>
-    </div>
+    <h2 style="margin:0 0 10px;text-align:center;color:#111827;font-size:22px;font-weight:800;letter-spacing:-0.01em;">${escapeHtml(copy.heading)}</h2>
+    <p style="margin:0 0 24px;text-align:center;color:#4b5563;font-size:15px;">
+      Hi ${escapeHtml(customerName)}, order <strong style="color:#111827;">#${escapeHtml(orderRef)}</strong> ${escapeHtml(copy.sentence)}.
+    </p>
 
     ${shipment?.carrier || shipment?.tracking_number ? `
     <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:24px;">
