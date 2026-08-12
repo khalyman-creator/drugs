@@ -139,11 +139,10 @@ function ConnectedStepper({
             {current ? (
               <span
                 aria-label="In progress"
-                className="absolute -left-[9px] top-0.5 h-4 w-4 rounded-full border-2 border-green-200 bg-white"
+                className="absolute -left-[9px] top-0.5 flex h-4 w-4 items-center justify-center"
               >
-                <span className="absolute inset-0 animate-spin">
-                  <span className="absolute -top-[3px] left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-green-600" />
-                </span>
+                <span className="absolute inset-0 animate-spin rounded-full border-[3px] border-green-200 border-t-[#1a7f37]" />
+                <span className="h-1.5 w-1.5 rounded-full bg-[#1a7f37]" />
               </span>
             ) : (
               <span
