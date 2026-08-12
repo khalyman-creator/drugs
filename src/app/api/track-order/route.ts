@@ -3,7 +3,33 @@ import { findOrdersByReferencePrefix, type OrderWithDetails } from "@/lib/db/sup
 import { getShipmentByOrderId } from "@/lib/db/supabase-shipments";
 import { listOrderStatusEvents } from "@/lib/db/supabase-order-events";
 import { formatOrderReference, formatEmailDate } from "@/lib/email/order-ref";
-import { HOLD_REASON_LABELS } from "@/lib/shipping-status";
+import { HOLD_REASON_LABELS, SHIPMENT_FIELD_KEYS, type ShipmentFieldKey } from "@/lib/shipping-status";
+import type { ShipmentRecord } from "@/lib/db/supabase-shipments";
+
+/** Applies the admin's whole-section and per-field visibility choices before anything reaches the customer. */
+function buildShipmentPayload(shipment: ShipmentRecord | null) {
+  if (!shipment || !shipment.show_shipment_details) return null;
+
+  const hidden = new Set(shipment.hidden_fields);
+  const full: Record<ShipmentFieldKey, string | null> = {
+    carrier: shipment.carrier,
+    trackingNumber: shipment.tracking_number,
+    shipmentType: shipment.shipment_type,
+    weight:
+      shipment.weight_value != null
+        ? `${shipment.weight_value}${shipment.weight_unit ? ` ${shipment.weight_unit}` : ""}`
+        : null,
+    origin: shipment.origin,
+    destination: shipment.destination,
+    estimatedDelivery: shipment.estimated_delivery,
+  };
+
+  for (const key of SHIPMENT_FIELD_KEYS) {
+    if (hidden.has(key)) full[key] = null;
+  }
+
+  return full;
+}
 
 const REF_PATTERN = /^[0-9A-F]{8}$/;
 
@@ -91,20 +117,7 @@ export async function POST(req: NextRequest) {
           phone: customer.phone || null,
         }
       : null,
-    shipment: shipment
-      ? {
-          carrier: shipment.carrier,
-          trackingNumber: shipment.tracking_number,
-          shipmentType: shipment.shipment_type,
-          weight:
-            shipment.weight_value != null
-              ? `${shipment.weight_value}${shipment.weight_unit ? ` ${shipment.weight_unit}` : ""}`
-              : null,
-          origin: shipment.origin,
-          destination: shipment.destination,
-          estimatedDelivery: shipment.estimated_delivery,
-        }
-      : null,
+    shipment: buildShipmentPayload(shipment),
     hold:
       shipment?.hold_active && shipment.hold_reason
         ? {

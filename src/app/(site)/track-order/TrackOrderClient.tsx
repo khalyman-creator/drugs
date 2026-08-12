@@ -17,7 +17,26 @@ import {
   type ControlStatus,
   type ProcessingStatus,
   type ShippingStatus,
+  type StatusTone,
 } from "@/lib/shipping-status";
+
+// Headline-only treatment — a full-bleed accent bar and large status text,
+// distinct from the smaller pill badges (toneClass/TONE_CLASSES).
+const ACCENT_BAR_CLASSES: Record<StatusTone, string> = {
+  positive: "bg-green-500",
+  warning: "bg-amber-500",
+  info: "bg-blue-500",
+  negative: "bg-red-500",
+  neutral: "bg-gray-300",
+};
+
+const HEADLINE_TEXT_CLASSES: Record<StatusTone, string> = {
+  positive: "text-green-700",
+  warning: "text-amber-700",
+  info: "text-blue-700",
+  negative: "text-red-700",
+  neutral: "text-gray-900",
+};
 
 // The customer-facing shipping ladder never shows "delivery_exception" as a
 // sequential step — it's surfaced as the headline + a banner instead, so the
@@ -91,15 +110,16 @@ function lastRealShippingStatus(r: TrackOrderResult): ShippedStatus {
   return prev && (SHIPPING_LADDER_STATUSES as readonly string[]).includes(prev) ? prev : "preparing_shipment";
 }
 
-function computeHeadline(r: TrackOrderResult): { icon: string; text: string } {
-  if (r.deliveryException) return { icon: "⚠️", text: "Delivery Exception" };
+function computeHeadline(r: TrackOrderResult): { icon: string; text: string; tone: StatusTone } {
+  if (r.deliveryException) return { icon: "⚠️", text: "Delivery Exception", tone: "negative" };
+  if (r.hold) return { icon: "⚠️", text: "Shipment On Hold", tone: "negative" };
   const effectiveShipping = lastRealShippingStatus(r);
   if (effectiveShipping !== "not_shipped") {
-    return { icon: SHIPPING_ICONS[effectiveShipping], text: SHIPPING_LABELS[effectiveShipping] };
+    return { icon: SHIPPING_ICONS[effectiveShipping], text: SHIPPING_LABELS[effectiveShipping], tone: SHIPPING_TONE[effectiveShipping] };
   }
-  if (r.controlStatus === "cancelled") return { icon: "✕", text: "Order Cancelled" };
-  if (r.controlStatus === "on_hold") return { icon: "⏸", text: "Order On Hold" };
-  return { icon: "📦", text: PROCESSING_LABELS[r.processingStatus] };
+  if (r.controlStatus === "cancelled") return { icon: "✕", text: "Order Cancelled", tone: "negative" };
+  if (r.controlStatus === "on_hold") return { icon: "⏸", text: "Order On Hold", tone: "warning" };
+  return { icon: "📦", text: PROCESSING_LABELS[r.processingStatus], tone: PROCESSING_TONE[r.processingStatus] };
 }
 
 function ConnectedStepper({
@@ -120,20 +140,23 @@ function ConnectedStepper({
         const current = i === currentIndex;
         return (
           <li key={step.key} className="relative pb-4 pl-6 last:pb-0">
-            <span
-              className={`absolute -left-[9px] top-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${
-                done
-                  ? "bg-brand-600 text-white"
-                  : current
-                    ? "border-2 border-brand-600 bg-white"
-                    : "border-2 border-gray-300 bg-white"
-              }`}
-            >
-              {done ? "✓" : ""}
-            </span>
+            {current ? (
+              <span
+                aria-label="In progress"
+                className="absolute -left-[9px] top-0.5 h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600"
+              />
+            ) : (
+              <span
+                className={`absolute -left-[9px] top-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[10px] ${
+                  done ? "bg-green-600 text-white" : "border-2 border-gray-300 bg-white"
+                }`}
+              >
+                {done ? "✓" : ""}
+              </span>
+            )}
             <span
               className={`flex min-w-0 items-center gap-1.5 text-sm ${
-                current ? "font-bold text-gray-900" : done ? "text-gray-700" : "text-gray-400"
+                current ? "font-bold text-blue-700" : done ? "text-gray-700" : "text-gray-400"
               }`}
             >
               {step.icon && <span className="shrink-0">{step.icon}</span>}
@@ -280,24 +303,27 @@ export function TrackOrderClient({ initialRef }: { initialRef?: string }) {
       {result && headline && (
         <div className="mt-8 space-y-6">
           {/* Headline */}
-          <div className="rounded-2xl border border-gray-200 bg-white p-6 text-center">
-            <p className="font-mono text-xs text-gray-400">{result.orderRef}</p>
-            <p className="mt-2 text-2xl font-bold text-gray-900">
-              {headline.icon} {headline.text}
-            </p>
-            <p className="mt-1 text-xs text-gray-400">Placed {result.createdAtFormatted}</p>
-            <div className="mt-3 flex flex-wrap justify-center gap-2">
-              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${toneClass(CONTROL_TONE[result.controlStatus])}`}>
-                {CONTROL_LABELS[result.controlStatus]}
-              </span>
-              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${toneClass(PROCESSING_TONE[result.processingStatus])}`}>
-                {PROCESSING_LABELS[result.processingStatus]}
-              </span>
-              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${toneClass(SHIPPING_TONE[result.shippingStatus])}`}>
-                {SHIPPING_ICONS[result.shippingStatus]} {SHIPPING_LABELS[result.shippingStatus]}
-              </span>
+          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+            <div className={`h-1.5 w-full ${ACCENT_BAR_CLASSES[headline.tone]}`} />
+            <div className="p-6 text-center">
+              <p className="font-mono text-sm font-semibold tracking-[0.2em] text-gray-500">{result.orderRef}</p>
+              <p className={`mt-3 text-3xl font-bold ${HEADLINE_TEXT_CLASSES[headline.tone]}`}>
+                {headline.icon} {headline.text}
+              </p>
+              <p className="mt-1 text-xs text-gray-400">Placed {result.createdAtFormatted}</p>
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${toneClass(CONTROL_TONE[result.controlStatus])}`}>
+                  {CONTROL_LABELS[result.controlStatus]}
+                </span>
+                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${toneClass(PROCESSING_TONE[result.processingStatus])}`}>
+                  {PROCESSING_LABELS[result.processingStatus]}
+                </span>
+                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${toneClass(SHIPPING_TONE[result.shippingStatus])}`}>
+                  {SHIPPING_ICONS[result.shippingStatus]} {SHIPPING_LABELS[result.shippingStatus]}
+                </span>
+              </div>
+              <p className="mt-4 border-t border-gray-100 pt-4 text-lg font-bold text-gray-900">{formatPrice(result.total)}</p>
             </div>
-            <p className="mt-3 text-lg font-bold text-brand-700">{formatPrice(result.total)}</p>
           </div>
 
           {result.deliveryException && (
@@ -342,17 +368,20 @@ export function TrackOrderClient({ initialRef }: { initialRef?: string }) {
             </div>
           )}
 
-          {/* Shipment info */}
-          <div className="grid gap-4 rounded-2xl border border-gray-200 bg-white p-6 sm:grid-cols-2">
-            <h2 className="col-span-full font-semibold">Shipment Information</h2>
-            <Field label="Carrier" value={result.shipment?.carrier} />
-            <Field label="Tracking Number" value={result.shipment?.trackingNumber} />
-            <Field label="Weight" value={result.shipment?.weight} />
-            <Field label="Shipment Type" value={result.shipment?.shipmentType} />
-            <Field label="Origin" value={result.shipment?.origin} />
-            <Field label="Destination" value={result.shipment?.destination} />
-            <Field label="Estimated Delivery" value={result.shipment?.estimatedDelivery} />
-          </div>
+          {/* Shipment info — the admin can hide this whole section, or just
+              individual fields within it, per order */}
+          {result.shipment && (
+            <div className="grid gap-4 rounded-2xl border border-gray-200 bg-white p-6 sm:grid-cols-2">
+              <h2 className="col-span-full font-semibold">Shipment Information</h2>
+              <Field label="Carrier" value={result.shipment.carrier} />
+              <Field label="Tracking Number" value={result.shipment.trackingNumber} />
+              <Field label="Weight" value={result.shipment.weight} />
+              <Field label="Shipment Type" value={result.shipment.shipmentType} />
+              <Field label="Origin" value={result.shipment.origin} />
+              <Field label="Destination" value={result.shipment.destination} />
+              <Field label="Estimated Delivery" value={result.shipment.estimatedDelivery} />
+            </div>
+          )}
 
           {/* Timeline — three connected groups; a line never spans a group
               boundary, mirroring the fact that order/processing/shipping
@@ -381,10 +410,10 @@ export function TrackOrderClient({ initialRef }: { initialRef?: string }) {
               currentIndex={shipCurrent}
               renderAfter={(i) =>
                 result.hold && i === shipAttachIndex ? (
-                  <div className="mt-2 rounded-xl border border-amber-300 bg-amber-50 p-3">
-                    <p className="text-sm font-semibold text-amber-900">⚠️ Shipment On Hold</p>
-                    <p className="mt-1 text-xs text-amber-800">{result.hold.reason}</p>
-                    {result.hold.message && <p className="mt-1 text-xs text-amber-700">{result.hold.message}</p>}
+                  <div className="mt-2 rounded-xl border border-red-300 bg-red-50 p-3">
+                    <p className="text-sm font-semibold text-red-900">⚠️ Shipment On Hold</p>
+                    <p className="mt-1 text-xs text-red-800">{result.hold.reason}</p>
+                    {result.hold.message && <p className="mt-1 text-xs text-red-700">{result.hold.message}</p>}
                   </div>
                 ) : null
               }

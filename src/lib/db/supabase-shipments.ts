@@ -19,6 +19,8 @@ export type ShipmentRecord = {
   hold_placed_at: string | null;
   delivery_exception_reason: string | null;
   delivery_exception_at: string | null;
+  show_shipment_details: boolean;
+  hidden_fields: string[];
   created_at: string;
   updated_at: string;
 };
@@ -80,6 +82,28 @@ export async function updateShipmentInfo(
   const { data, error } = await supabase
     .from("shipments")
     .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq("order_id", orderId)
+    .select("*")
+    .maybeSingle();
+
+  if (error) throw error;
+  return (data as ShipmentRecord | null) ?? null;
+}
+
+export async function updateShipmentVisibility(
+  orderId: string,
+  patch: { showShipmentDetails?: boolean; hiddenFields?: string[] }
+): Promise<ShipmentRecord | null> {
+  await getOrCreateShipmentForOrder(orderId);
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("shipments")
+    .update({
+      ...(patch.showShipmentDetails !== undefined ? { show_shipment_details: patch.showShipmentDetails } : {}),
+      ...(patch.hiddenFields !== undefined ? { hidden_fields: patch.hiddenFields } : {}),
+      updated_at: new Date().toISOString(),
+    })
     .eq("order_id", orderId)
     .select("*")
     .maybeSingle();

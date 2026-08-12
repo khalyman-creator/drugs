@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrderById } from "@/lib/db/supabase-orders";
-import { updateShipmentInfo } from "@/lib/db/supabase-shipments";
+import { updateShipmentInfo, updateShipmentVisibility } from "@/lib/db/supabase-shipments";
 import { isAdminLoggedIn } from "@/lib/auth";
 
 export async function PATCH(
@@ -39,5 +39,14 @@ export async function PATCH(
   }
 
   const updated = await updateShipmentInfo(id, patch);
+
+  if ("show_shipment_details" in body || "hidden_fields" in body) {
+    const visibility = await updateShipmentVisibility(id, {
+      showShipmentDetails: typeof body.show_shipment_details === "boolean" ? body.show_shipment_details : undefined,
+      hiddenFields: Array.isArray(body.hidden_fields) ? body.hidden_fields.filter((f: unknown) => typeof f === "string") : undefined,
+    });
+    return NextResponse.json(visibility);
+  }
+
   return NextResponse.json(updated);
 }

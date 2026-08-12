@@ -171,3 +171,27 @@ export const ORDER_STATUS_TONE: Record<string, StatusTone> = {
 export function toneClass(tone: StatusTone): string {
   return TONE_CLASSES[tone];
 }
+
+// The fields the customer-facing Shipment Information section can show —
+// shared between the admin per-field visibility checkboxes and the
+// /api/track-order filtering that actually enforces them.
+export const SHIPMENT_FIELD_KEYS = [
+  "carrier",
+  "trackingNumber",
+  "shipmentType",
+  "weight",
+  "origin",
+  "destination",
+  "estimatedDelivery",
+] as const;
+export type ShipmentFieldKey = (typeof SHIPMENT_FIELD_KEYS)[number];
+
+export const SHIPMENT_FIELD_LABELS: Record<ShipmentFieldKey, string> = {
+  carrier: "Carrier",
+  trackingNumber: "Tracking Number",
+  shipmentType: "Shipment Type",
+  weight: "Weight",
+  origin: "Origin",
+  destination: "Destination",
+  estimatedDelivery: "Estimated Delivery",
+};

@@ -23,11 +23,14 @@ import {
   ORDER_STATUS_TONE,
   HOLD_REASONS,
   HOLD_REASON_LABELS,
+  SHIPMENT_FIELD_KEYS,
+  SHIPMENT_FIELD_LABELS,
   toneClass,
   type ControlStatus,
   type ProcessingStatus,
   type ShippingStatus,
   type HoldReason,
+  type ShipmentFieldKey,
   type StatusTone,
 } from "@/lib/shipping-status";
 
@@ -186,6 +189,19 @@ export function OrderDetailClient({
   });
   const [savingShipment, setSavingShipment] = useState(false);
   const [shipmentMessage, setShipmentMessage] = useState("");
+  const [showShipmentDetails, setShowShipmentDetails] = useState(initialShipment.show_shipment_details);
+  const [hiddenFields, setHiddenFields] = useState<Set<ShipmentFieldKey>>(
+    new Set(initialShipment.hidden_fields as ShipmentFieldKey[])
+  );
+
+  function toggleFieldVisibility(field: ShipmentFieldKey) {
+    setHiddenFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(field)) next.delete(field);
+      else next.add(field);
+      return next;
+    });
+  }
 
   const [holdFormOpen, setHoldFormOpen] = useState(false);
   const [holdReason, setHoldReason] = useState<HoldReason>("other");
@@ -308,11 +324,15 @@ export function OrderDetailClient({
           ...shipForm,
           weight_value: shipForm.weight_value === "" ? null : Number(shipForm.weight_value),
           estimated_delivery: shipForm.estimated_delivery || "",
+          show_shipment_details: showShipmentDetails,
+          hidden_fields: Array.from(hiddenFields),
         }),
       });
       if (res.ok) {
         const data = await res.json();
         setShipment(data);
+        setShowShipmentDetails(data.show_shipment_details);
+        setHiddenFields(new Set(data.hidden_fields as ShipmentFieldKey[]));
         setShipmentMessage("Saved!");
       } else {
         setShipmentMessage("Failed to save");
@@ -532,7 +552,18 @@ export function OrderDetailClient({
 
       {/* Shipment info */}
       <form onSubmit={handleSaveShipment} className="mb-6 space-y-4 rounded-2xl border bg-white p-6">
-        <h2 className="font-semibold">Shipment Information</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-semibold">Shipment Information</h2>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input
+              type="checkbox"
+              checked={showShipmentDetails}
+              onChange={(e) => setShowShipmentDetails(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300"
+            />
+            Show this section to the customer
+          </label>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           {(
             [
@@ -573,6 +604,27 @@ export function OrderDetailClient({
             />
           </div>
         </div>
+
+        <div className={`rounded-xl border p-4 ${showShipmentDetails ? "border-gray-200" : "border-gray-100 opacity-50"}`}>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Fields visible to the customer
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {SHIPMENT_FIELD_KEYS.map((key) => (
+              <label key={key} className="flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  disabled={!showShipmentDetails}
+                  checked={!hiddenFields.has(key)}
+                  onChange={() => toggleFieldVisibility(key)}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                {SHIPMENT_FIELD_LABELS[key]}
+              </label>
+            ))}
+          </div>
+        </div>
+
         <div className="flex items-center gap-3">
           <button
             type="submit"
