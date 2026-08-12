@@ -112,17 +112,29 @@ function computeHeadline(r: TrackOrderResult): { icon: string; text: string } {
   return { icon: "📦", text: PROCESSING_LABELS[r.processingStatus] };
 }
 
+// State-driven color for whichever step is "current" — never tied to which
+// shipping stage is active. Cancelled beats hold beats normal progress.
+type ActiveTone = "positive" | "warning" | "negative";
+const ACTIVE_SPINNER_CLASSES: Record<ActiveTone, { ring: string; core: string; text: string }> = {
+  positive: { ring: "border-green-200 border-t-[#1a7f37]", core: "bg-[#1a7f37]", text: "text-green-700" },
+  warning: { ring: "border-amber-200 border-t-amber-700", core: "bg-amber-700", text: "text-amber-700" },
+  negative: { ring: "border-red-200 border-t-red-700", core: "bg-red-700", text: "text-red-700" },
+};
+
 function ConnectedStepper({
   steps,
   doneCount,
   currentIndex,
+  activeTone,
   renderAfter,
 }: {
   steps: Array<{ key: string; label: string; icon?: string }>;
   doneCount: number;
   currentIndex: number | null;
+  activeTone: ActiveTone;
   renderAfter?: (index: number) => React.ReactNode;
 }) {
+  const spinner = ACTIVE_SPINNER_CLASSES[activeTone];
   return (
     <ol className="relative ml-2">
       {steps.map((step, i) => {
@@ -141,8 +153,8 @@ function ConnectedStepper({
                 aria-label="In progress"
                 className="absolute -left-[9px] top-0.5 flex h-4 w-4 items-center justify-center"
               >
-                <span className="absolute inset-0 animate-spin rounded-full border-[3px] border-green-200 border-t-[#1a7f37]" />
-                <span className="h-1.5 w-1.5 rounded-full bg-[#1a7f37]" />
+                <span className={`absolute inset-0 animate-spin rounded-full border-[3px] ${spinner.ring}`} />
+                <span className={`h-1.5 w-1.5 rounded-full ${spinner.core}`} />
               </span>
             ) : (
               <span
@@ -155,7 +167,7 @@ function ConnectedStepper({
             )}
             <span
               className={`flex min-w-0 items-center gap-1.5 text-sm ${
-                current ? "font-bold text-green-700" : done ? "text-gray-700" : "text-gray-400"
+                current ? `font-bold ${spinner.text}` : done ? "text-gray-700" : "text-gray-400"
               }`}
             >
               {step.icon && <span className="shrink-0">{step.icon}</span>}
@@ -261,6 +273,9 @@ export function TrackOrderClient({ initialRef }: { initialRef?: string }) {
   }
 
   const shipAttachIndex = shipCurrent ?? (shipDone > 0 ? shipDone - 1 : 0);
+
+  const activeTone: ActiveTone =
+    result?.controlStatus === "cancelled" ? "negative" : result?.hold ? "warning" : "positive";
 
   return (
     <div className="mt-8">
@@ -392,6 +407,7 @@ export function TrackOrderClient({ initialRef }: { initialRef?: string }) {
               steps={ORDER_GROUP_STATUSES.map((s) => ({ key: s, label: PROCESSING_LABELS[s] }))}
               doneCount={orderDone}
               currentIndex={orderCurrent}
+              activeTone={activeTone}
             />
 
             <p className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wide text-gray-400">Processing</p>
@@ -399,6 +415,7 @@ export function TrackOrderClient({ initialRef }: { initialRef?: string }) {
               steps={PROCESSING_GROUP_STATUSES.map((s) => ({ key: s, label: PROCESSING_LABELS[s] }))}
               doneCount={procDone}
               currentIndex={procCurrent}
+              activeTone={activeTone}
             />
 
             <p className="mb-2 mt-5 text-xs font-semibold uppercase tracking-wide text-gray-400">Shipping</p>
@@ -406,6 +423,7 @@ export function TrackOrderClient({ initialRef }: { initialRef?: string }) {
               steps={SHIPPING_LADDER_STATUSES.map((s) => ({ key: s, label: SHIPPING_LABELS[s], icon: SHIPPING_ICONS[s] }))}
               doneCount={shipDone}
               currentIndex={shipCurrent}
+              activeTone={activeTone}
               renderAfter={(i) =>
                 result.hold && i === shipAttachIndex ? (
                   <div className="mt-2 rounded-xl border border-amber-400 bg-amber-50 p-3">
