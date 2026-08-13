@@ -10,6 +10,14 @@ import type { PendingOrder } from "./types";
 
 const MIN_CHECKOUT = 100;
 export const PENDING_ORDER_STORAGE_KEY = "silkfreedom_pending_order_id";
+const FIELD_PLACEHOLDERS: Record<"name" | "email" | "address" | "city" | "zip" | "country", string> = {
+  name: "John Michael Smith",
+  email: "john@example.com",
+  address: "123 Main Street",
+  city: "Los Angeles",
+  zip: "90001",
+  country: "United States",
+};
 const SHIPPING_OPTIONS = {
   standard: { label: "Standard Shipping", price: 10 },
   express: { label: "Express Shipping", price: 20 },
@@ -407,6 +415,7 @@ export default function CheckoutClient({ pendingOrder }: { pendingOrder: Pending
                     type={field === "email" ? "email" : "text"}
                     value={form[field]}
                     onChange={(e) => setForm({ ...form, [field]: e.target.value })}
+                    placeholder={FIELD_PLACEHOLDERS[field]}
                     className="w-full rounded-lg border border-gray-300 px-4 py-2.5 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
                   />
                 </div>

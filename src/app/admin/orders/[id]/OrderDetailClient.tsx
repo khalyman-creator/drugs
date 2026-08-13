@@ -36,6 +36,18 @@ import {
 
 const SELECTABLE_SHIPPING_STATUSES = SHIPPING_STATUSES.filter((s) => s !== "delivery_exception");
 
+const SHIPMENT_FIELD_PLACEHOLDERS: Record<
+  "carrier" | "tracking_number" | "shipment_type" | "weight_unit" | "origin" | "destination",
+  string
+> = {
+  carrier: "DHL Express",
+  tracking_number: "1Z999AA10123456784",
+  shipment_type: "Standard Parcel",
+  weight_unit: "kg",
+  origin: "Miami, FL, USA",
+  destination: "Toronto, ON, Canada",
+};
+
 function nowDatetimeLocalValue(): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -103,7 +115,7 @@ function StatusChangeCard<T extends string>({
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Optional note"
+            placeholder="Add an internal note about this change..."
             rows={2}
             className="w-full rounded-lg border px-2 py-1.5 text-xs"
           />
@@ -580,6 +592,7 @@ export function OrderDetailClient({
               <input
                 value={shipForm[key]}
                 onChange={(e) => setShipForm({ ...shipForm, [key]: e.target.value })}
+                placeholder={SHIPMENT_FIELD_PLACEHOLDERS[key]}
                 className="w-full rounded-xl border px-3 py-2 text-sm"
               />
             </div>
@@ -591,6 +604,7 @@ export function OrderDetailClient({
               step="0.01"
               value={shipForm.weight_value}
               onChange={(e) => setShipForm({ ...shipForm, weight_value: e.target.value })}
+              placeholder="45.5"
               className="w-full rounded-xl border px-3 py-2 text-sm"
             />
           </div>
@@ -687,6 +701,7 @@ export function OrderDetailClient({
                 value={holdCustomerMessage}
                 onChange={(e) => setHoldCustomerMessage(e.target.value)}
                 rows={2}
+                placeholder="Explain what the customer needs to know or provide..."
                 className="w-full rounded-xl border px-3 py-2 text-sm"
               />
             </div>
@@ -696,6 +711,7 @@ export function OrderDetailClient({
                 value={holdInternalNote}
                 onChange={(e) => setHoldInternalNote(e.target.value)}
                 rows={2}
+                placeholder="Add an internal note about this hold..."
                 className="w-full rounded-xl border px-3 py-2 text-sm"
               />
             </div>
