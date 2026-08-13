@@ -66,6 +66,7 @@ type TrackOrderResult = {
     destination: string | null;
     estimatedDelivery: string | null;
   } | null;
+  shipmentHiddenFields: string[];
   hold: { reason: string; message: string | null } | null;
   deliveryException: { reason: string; since: string | null } | null;
   timeline: Array<{
@@ -382,17 +383,33 @@ export function TrackOrderClient({ initialRef }: { initialRef?: string }) {
           )}
 
           {/* Shipment info — the admin can hide this whole section, or just
-              individual fields within it, per order */}
+              individual fields within it, per order. A hidden field is
+              omitted entirely rather than shown as "Pending", which would
+              be indistinguishable from "not filled in yet". */}
           {result.shipment && (
             <div className="grid gap-4 rounded-2xl border border-gray-200 bg-white p-6 sm:grid-cols-2">
               <h2 className="col-span-full font-semibold">Shipment Information</h2>
-              <Field label="Carrier" value={result.shipment.carrier} />
-              <Field label="Tracking Number" value={result.shipment.trackingNumber} />
-              <Field label="Weight" value={result.shipment.weight} />
-              <Field label="Shipment Type" value={result.shipment.shipmentType} />
-              <Field label="Origin" value={result.shipment.origin} />
-              <Field label="Destination" value={result.shipment.destination} />
-              <Field label="Estimated Delivery" value={result.shipment.estimatedDelivery} />
+              {!result.shipmentHiddenFields.includes("carrier") && (
+                <Field label="Carrier" value={result.shipment.carrier} />
+              )}
+              {!result.shipmentHiddenFields.includes("trackingNumber") && (
+                <Field label="Tracking Number" value={result.shipment.trackingNumber} />
+              )}
+              {!result.shipmentHiddenFields.includes("weight") && (
+                <Field label="Weight" value={result.shipment.weight} />
+              )}
+              {!result.shipmentHiddenFields.includes("shipmentType") && (
+                <Field label="Shipment Type" value={result.shipment.shipmentType} />
+              )}
+              {!result.shipmentHiddenFields.includes("origin") && (
+                <Field label="Origin" value={result.shipment.origin} />
+              )}
+              {!result.shipmentHiddenFields.includes("destination") && (
+                <Field label="Destination" value={result.shipment.destination} />
+              )}
+              {!result.shipmentHiddenFields.includes("estimatedDelivery") && (
+                <Field label="Estimated Delivery" value={result.shipment.estimatedDelivery} />
+              )}
             </div>
           )}
 

@@ -118,6 +118,12 @@ export async function POST(req: NextRequest) {
         }
       : null,
     shipment: buildShipmentPayload(shipment),
+    // Which keys the admin deliberately hid (as opposed to just not filled
+    // in yet) — sent separately from the values themselves, which are
+    // already nulled out above, so the client can omit that row entirely
+    // instead of showing a misleading "Pending" for something intentionally
+    // redacted.
+    shipmentHiddenFields: shipment?.show_shipment_details ? shipment.hidden_fields : [],
     hold:
       shipment?.hold_active && shipment.hold_reason
         ? {
