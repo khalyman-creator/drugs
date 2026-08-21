@@ -1,16 +1,13 @@
 import bcrypt from "bcryptjs";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
-export async function verifyAdmin(username: string, password: string): Promise<boolean> {
+/** Password-only login — checked against every stored hash, not tied to a username. */
+export async function verifyAdminPassword(password: string): Promise<boolean> {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("admin_users")
-    .select("password_hash")
-    .eq("username", username)
-    .maybeSingle();
+  const { data, error } = await supabase.from("admin_users").select("password_hash");
 
   if (error) throw error;
-  if (!data) return false;
+  if (!data || data.length === 0) return false;
 
-  return bcrypt.compareSync(password, data.password_hash);
+  return data.some((row) => bcrypt.compareSync(password, row.password_hash));
 }

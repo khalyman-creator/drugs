@@ -6,7 +6,6 @@ import Link from "next/link";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,7 +18,7 @@ export default function AdminLoginPage() {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ password }),
     });
 
     if (res.ok) {
@@ -36,18 +35,8 @@ export default function AdminLoginPage() {
     <div className="mx-auto flex min-h-[70vh] max-w-md items-center px-4 py-12">
       <div className="w-full rounded-2xl border border-gray-200 bg-white p-8 shadow-sm">
         <h1 className="text-2xl font-bold">Admin Login</h1>
-        <p className="mt-1 text-sm text-gray-500">Default: admin / admin123</p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium">Username</label>
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-xl border px-4 py-2.5 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200"
-              required
-            />
-          </div>
           <div>
             <label className="mb-1 block text-sm font-medium">Password</label>
             <input

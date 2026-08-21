@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { verifyAdmin } from "@/lib/db/supabase-admin-auth";
+import { verifyAdminPassword } from "@/lib/db/supabase-admin-auth";
 import { createSessionToken, getSessionCookieName, getSessionMaxAgeSeconds } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
-  const { username, password } = await req.json();
+  const { password } = await req.json();
 
-  if (!username || !password) {
-    return NextResponse.json({ error: "Username and password required" }, { status: 400 });
+  if (!password) {
+    return NextResponse.json({ error: "Password required" }, { status: 400 });
   }
 
-  if (!(await verifyAdmin(username, password))) {
-    return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+  if (!(await verifyAdminPassword(password))) {
+    return NextResponse.json({ error: "Invalid password" }, { status: 401 });
   }
 
   const res = NextResponse.json({ success: true });
