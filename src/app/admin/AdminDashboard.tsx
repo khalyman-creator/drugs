@@ -57,6 +57,12 @@ export function AdminDashboard({
   const [heroUploading, setHeroUploading] = useState(false);
   const [heroUploadError, setHeroUploadError] = useState("");
 
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState("");
+
   const [reviews, setReviews] = useState(initialReviews);
   const [reviewActionId, setReviewActionId] = useState<number | null>(null);
 
@@ -78,6 +84,36 @@ export function AdminDashboard({
     await fetch("/api/auth/login", { method: "DELETE" });
     router.push("/admin/login");
     router.refresh();
+  }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordMessage("");
+
+    if (newPassword !== confirmPassword) {
+      setPasswordMessage("New password and confirmation don't match.");
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      const res = await fetch("/api/admin/change-password", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setPasswordMessage(data.error || "Failed to change password");
+        return;
+      }
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordMessage("Password changed.");
+    } finally {
+      setSavingPassword(false);
+    }
   }
 
   async function handleOrderStatusChange(
@@ -951,6 +987,58 @@ export function AdminDashboard({
             </div>
             </fieldset>
             {saveRow("bitcoin")}
+          </form>
+
+          <form onSubmit={handleChangePassword} className="space-y-4 rounded-2xl border bg-white p-6">
+            <fieldset className="space-y-4">
+              <legend className="font-medium text-brand-800">Admin Password</legend>
+              <div>
+                <label className="mb-1 block text-sm font-medium">Current Password</label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  required
+                  className="w-full rounded-xl border px-4 py-2.5"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">New Password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  className="w-full rounded-xl border px-4 py-2.5"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium">Confirm New Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  className="w-full rounded-xl border px-4 py-2.5"
+                />
+              </div>
+            </fieldset>
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={savingPassword}
+                className="rounded-xl bg-brand-600 px-5 py-2.5 font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+              >
+                {savingPassword ? "Saving..." : "Change Password"}
+              </button>
+              {passwordMessage && (
+                <span className={`text-sm ${passwordMessage === "Password changed." ? "text-green-600" : "text-red-600"}`}>
+                  {passwordMessage}
+                </span>
+              )}
+            </div>
           </form>
         </div>
       )}
