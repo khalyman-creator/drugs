@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import {
   Cart,
   CartItem,
@@ -26,19 +33,42 @@ type CartContextType = {
 
 const CartContext = createContext<CartContextType | null>(null);
 
-export function CartProvider({ children }: { children: React.ReactNode }) {
-  const [cart, setCart] = useState<Cart>({ items: [] });
-  const [hydrated, setHydrated] = useState(false);
+/**
+ * Reads the persisted cart. Returns an empty cart on the server, and never
+ * throws on malformed JSON or blocked storage.
+ */
+/* Stable identities, so useSyncExternalStore does not resubscribe every render. */
+const subscribeNever = () => () => {};
+const getHydratedOnClient = () => true;
+const getHydratedOnServer = () => false;
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(CART_STORAGE_KEY);
-      if (stored) setCart(normalizeCart(JSON.parse(stored)));
-    } catch {
-      /* ignore */
-    }
-    setHydrated(true);
-  }, []);
+function readStoredCart(): Cart {
+  if (typeof window === "undefined") return { items: [] };
+  try {
+    const stored = window.localStorage.getItem(CART_STORAGE_KEY);
+    return stored ? normalizeCart(JSON.parse(stored)) : { items: [] };
+  } catch {
+    return { items: [] };
+  }
+}
+
+export function CartProvider({ children }: { children: React.ReactNode }) {
+  /*
+   * Read straight into initial state rather than syncing it in after mount.
+   * This is hydration-safe because every consumer gates cart-dependent output
+   * behind `hydrated` below, so the server HTML and the first client render
+   * agree no matter what is in storage. The write effect is likewise still
+   * gated on `hydrated`, so nothing is persisted before the first paint.
+   */
+  const [cart, setCart] = useState<Cart>(readStoredCart);
+
+  /*
+   * "Are we past hydration yet?", without an effect. useSyncExternalStore hands
+   * back the server snapshot (false) during SSR and the hydration render, then
+   * the client snapshot (true) once hydrated — exactly the old flag's
+   * semantics, with no setState and no cascading render.
+   */
+  const hydrated = useSyncExternalStore(subscribeNever, getHydratedOnClient, getHydratedOnServer);
 
   useEffect(() => {
     if (hydrated) {

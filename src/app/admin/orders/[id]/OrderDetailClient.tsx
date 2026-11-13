@@ -80,7 +80,15 @@ function StatusChangeCard<T extends string>({
   footer?: React.ReactNode;
 }) {
   const [pending, setPending] = useState<T>(currentValue);
-  useEffect(() => setPending(currentValue), [currentValue]);
+  // After a save the server sends a new currentValue and the select has to
+  // follow it, while still staying user-editable in between. React's documented
+  // "adjust state when a prop changes" pattern does that during render rather
+  // than in an effect.
+  const [syncedValue, setSyncedValue] = useState<T>(currentValue);
+  if (currentValue !== syncedValue) {
+    setSyncedValue(currentValue);
+    setPending(currentValue);
+  }
   const [note, setNote] = useState("");
   const [backdate, setBackdate] = useState("");
 
@@ -177,17 +185,14 @@ export function OrderDetailClient({
   const router = useRouter();
   const [order, setOrder] = useState(initialOrder);
   const [shipment, setShipment] = useState(initialShipment);
-  const [events, setEvents] = useState(initialEvents);
   const [savingField, setSavingField] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [markingPaid, setMarkingPaid] = useState(false);
 
   // initialEvents is a fresh array from the server on every router.refresh(),
-  // but useState only reads it on first mount — resync explicitly so the
-  // timeline actually updates after a status change instead of going stale.
-  useEffect(() => {
-    setEvents(initialEvents);
-  }, [initialEvents]);
+  // so the timeline reads it directly. Mirroring it into state only bought a
+  // resync effect and a window in which the list could be stale.
+  const events = initialEvents;
 
   const [shipForm, setShipForm] = useState({
     carrier: initialShipment.carrier ?? "",

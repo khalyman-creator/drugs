@@ -24,6 +24,32 @@ function toRows(options: ProductPricingOption[]): PricingOptionRow[] {
   }));
 }
 
+// Site-wide tier defaults for a brand-new gram/button product, so the admin is
+// not retyping four tiers. Shared by the initial state and the section-change
+// handler; fully editable and removable before saving.
+function defaultRowsFor(
+  pricingMode: ReturnType<typeof getPricingMode>,
+  siteDefaults: SiteSettings
+): PricingOptionRow[] {
+  if (pricingMode === "gram") {
+    return [
+      { label: siteDefaults.gram_28g_label, price: siteDefaults.gram_28g_price, unit_quantity: 28, is_active: true },
+      { label: siteDefaults.gram_qtr_label, price: siteDefaults.gram_qtr_price, unit_quantity: 113, is_active: true },
+      { label: siteDefaults.gram_half_label, price: siteDefaults.gram_half_price, unit_quantity: 227, is_active: true },
+      { label: siteDefaults.gram_1lb_label, price: siteDefaults.gram_1lb_price, unit_quantity: 454, is_active: true },
+    ];
+  }
+  if (pricingMode === "button") {
+    return [
+      { label: siteDefaults.button_8_label, price: siteDefaults.button_8_price, unit_quantity: 8, is_active: true },
+      { label: siteDefaults.button_16_label, price: siteDefaults.button_16_price, unit_quantity: 16, is_active: true },
+      { label: siteDefaults.button_32_label, price: siteDefaults.button_32_price, unit_quantity: 32, is_active: true },
+      { label: siteDefaults.button_64_label, price: siteDefaults.button_64_price, unit_quantity: 64, is_active: true },
+    ];
+  }
+  return [];
+}
+
 // 1 cover photo (Product Image, above) + up to this many extras = 5 total.
 const MAX_ADDITIONAL_IMAGES = 4;
 
@@ -58,7 +84,14 @@ export function ProductForm({
     is_featured: product?.is_featured ?? false,
     sale_price: product?.sale_price != null ? String(product.sale_price) : "",
   });
-  const [rows, setRows] = useState<PricingOptionRow[]>(() => toRows(pricingOptions ?? []));
+  // Prefill for a new product is initial state, not an effect: it was only ever
+  // meant to happen when no tiers exist yet.
+  const [rows, setRows] = useState<PricingOptionRow[]>(() => {
+    const existing = toRows(pricingOptions ?? []);
+    if (existing.length > 0 || mode !== "create" || !siteDefaults) return existing;
+    const initialSectionId = product?.section_id ?? defaultSectionId ?? sections[0]?.id ?? 1;
+    return defaultRowsFor(getPricingMode(initialSectionId), siteDefaults);
+  });
   const [galleryImages, setGalleryImages] = useState<string[]>(
     () => productImages?.map((img) => img.image_url) ?? []
   );
@@ -71,28 +104,6 @@ export function ProductForm({
   const [deleteArmed, setDeleteArmed] = useState(false);
 
   const pricingMode = getPricingMode(form.section_id);
-
-  // For a brand-new gram/button product, prefill from the site-wide defaults
-  // so the admin isn't retyping 4 tiers — fully editable/removable before saving.
-  useEffect(() => {
-    if (mode !== "create" || !siteDefaults || rows.length > 0) return;
-    if (pricingMode === "gram") {
-      setRows([
-        { label: siteDefaults.gram_28g_label, price: siteDefaults.gram_28g_price, unit_quantity: 28, is_active: true },
-        { label: siteDefaults.gram_qtr_label, price: siteDefaults.gram_qtr_price, unit_quantity: 113, is_active: true },
-        { label: siteDefaults.gram_half_label, price: siteDefaults.gram_half_price, unit_quantity: 227, is_active: true },
-        { label: siteDefaults.gram_1lb_label, price: siteDefaults.gram_1lb_price, unit_quantity: 454, is_active: true },
-      ]);
-    } else if (pricingMode === "button") {
-      setRows([
-        { label: siteDefaults.button_8_label, price: siteDefaults.button_8_price, unit_quantity: 8, is_active: true },
-        { label: siteDefaults.button_16_label, price: siteDefaults.button_16_price, unit_quantity: 16, is_active: true },
-        { label: siteDefaults.button_32_label, price: siteDefaults.button_32_price, unit_quantity: 32, is_active: true },
-        { label: siteDefaults.button_64_label, price: siteDefaults.button_64_price, unit_quantity: 64, is_active: true },
-      ]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, pricingMode, siteDefaults]);
 
   function addPricingOption() {
     setRows((prev) => [...prev, { label: "", price: 0, unit_quantity: null, is_active: true }]);
@@ -413,7 +424,17 @@ export function ProductForm({
           <label className="mb-1 block text-sm font-medium">Section</label>
           <select
             value={form.section_id}
-            onChange={(e) => setForm({ ...form, section_id: Number(e.target.value) })}
+            onChange={(e) => {
+              const sectionId = Number(e.target.value);
+              setForm({ ...form, section_id: sectionId });
+              // Changing section can change the pricing mode, so prefill that
+              // mode's default tiers while none are defined yet. This is a
+              // response to the admin's choice, so it belongs in the handler
+              // rather than in an effect watching pricingMode.
+              if (mode === "create" && siteDefaults && rows.length === 0) {
+                setRows(defaultRowsFor(getPricingMode(sectionId), siteDefaults));
+              }
+            }}
             className="w-full rounded-xl border px-4 py-2.5"
           >
             {sections.map((s) => (

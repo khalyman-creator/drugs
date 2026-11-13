@@ -230,7 +230,16 @@ export default function CheckoutClient({ pendingOrder }: { pendingOrder: Pending
   const router = useRouter();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  // NOWPayments bounces back to /checkout?payment=failed when a customer
+  // cancels. That belongs in the initial state rather than an effect: it is
+  // only true on arrival, and it has to stay dismissable afterwards -- a retry
+  // clears `error` while ?payment=failed is still in the URL, so deriving it on
+  // every render would make the message reappear.
+  const [error, setError] = useState(() =>
+    searchParams.get("payment") === "failed" && !pendingOrder
+      ? "Payment was cancelled or failed. You can try again."
+      : ""
+  );
   const [checkoutReady, setCheckoutReady] = useState<boolean | null>(null);
   const [shippingMethod, setShippingMethod] = useState<ShippingMethod>("standard");
   const [resumeDismissed, setResumeDismissed] = useState(false);
@@ -245,11 +254,15 @@ export default function CheckoutClient({ pendingOrder }: { pendingOrder: Pending
 
   // pendingOrder can arrive AFTER this component's first mount (the
   // localStorage-fallback effect below replaces the URL client-side rather
-  // than doing a fresh page load), and useState's initializer only runs once
-  // — so it must be explicitly resynced whenever a pending order shows up.
-  useEffect(() => {
+  // than doing a fresh page load), and useState's initializer only runs once,
+  // so the form has to be resynced when a pending order shows up. Done during
+  // render with the "adjust state when a prop changes" pattern instead of in an
+  // effect, so the prefilled values land on the same paint.
+  const [syncedPendingOrder, setSyncedPendingOrder] = useState(pendingOrder);
+  if (pendingOrder !== syncedPendingOrder) {
+    setSyncedPendingOrder(pendingOrder);
     if (pendingOrder) setForm(formFromPendingOrder(pendingOrder));
-  }, [pendingOrder]);
+  }
 
   useEffect(() => {
     fetch("/api/public/store-config")
@@ -270,12 +283,6 @@ export default function CheckoutClient({ pendingOrder }: { pendingOrder: Pending
         setError("Could not verify payment configuration.");
       });
   }, []);
-
-  useEffect(() => {
-    if (searchParams.get("payment") === "failed" && !pendingOrder) {
-      setError("Payment was cancelled or failed. You can try again.");
-    }
-  }, [searchParams, pendingOrder]);
 
   // Fallback for when NOWPayments' own "return"/"back" control doesn't
   // round-trip our ?orderId= param (third-party redirects aren't guaranteed

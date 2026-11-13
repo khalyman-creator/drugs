@@ -20,7 +20,6 @@ export function AnnouncementBar({
     if (items.length < 2) return;
     const id = setInterval(() => setIndex((i) => (i + 1) % items.length), 4000);
     return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items.length]);
 
   if (!enabled || items.length === 0) return null;

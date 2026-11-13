@@ -66,7 +66,6 @@ export function SectionQuantityPicker({
     }
 
     return resolvePricingSelection(selectedId, pricingOptions, mode, parsedCustomQty);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, selectedId, parsedCustomQty, standardQty, basePrice, activeOptions.length, pricingOptions]);
 
   useEffect(() => {

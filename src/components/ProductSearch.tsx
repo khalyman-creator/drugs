@@ -1,16 +1,25 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 export function ProductSearch() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [query, setQuery] = useState("");
+  const urlQuery = searchParams.get("q") ?? "";
 
-  useEffect(() => {
-    setQuery(searchParams.get("q") ?? "");
-  }, [searchParams]);
+  // The box has to stay typeable, so the URL cannot drive the input directly --
+  // but a new ?q= (a fresh search, or back/forward) must win over a stale
+  // draft. This is React's documented "adjust state when a prop changes"
+  // pattern: it runs during render, so there is no effect and no extra render
+  // pass. Keyed on the q value rather than the searchParams object, so an
+  // unrelated query-string change no longer wipes what the user is typing.
+  const [query, setQuery] = useState(urlQuery);
+  const [syncedQuery, setSyncedQuery] = useState(urlQuery);
+  if (urlQuery !== syncedQuery) {
+    setSyncedQuery(urlQuery);
+    setQuery(urlQuery);
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

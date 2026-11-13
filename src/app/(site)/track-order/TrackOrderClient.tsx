@@ -186,15 +186,16 @@ export function TrackOrderClient({ initialRef }: { initialRef?: string }) {
   const [reference, setReference] = useState(initialRef ?? "");
   const [email, setEmail] = useState("");
   const [needsEmail, setNeedsEmail] = useState(false);
-  const [loading, setLoading] = useState(false);
+  // Starts true when a ?ref= deep link will auto-run the lookup on mount, so
+  // the first paint already shows the loading state and the mount effect does
+  // not have to set state synchronously.
+  const [loading, setLoading] = useState(Boolean(initialRef));
   const [error, setError] = useState("");
   const [result, setResult] = useState<TrackOrderResult | null>(null);
 
-  async function runSearch(ref: string, emailVal: string) {
-    setLoading(true);
-    setError("");
-    setResult(null);
-
+  // The request itself. Every state update in here happens after an await, so
+  // it is safe to call straight from an effect.
+  async function fetchOrder(ref: string, emailVal: string) {
     try {
       const res = await fetch("/api/track-order", {
         method: "POST",
@@ -217,13 +218,30 @@ export function TrackOrderClient({ initialRef }: { initialRef?: string }) {
     }
   }
 
+  // The user-initiated path: clear the previous result first, then fetch.
+  async function runSearch(ref: string, emailVal: string) {
+    setLoading(true);
+    setError("");
+    setResult(null);
+    await fetchOrder(ref, emailVal);
+  }
+
   // A "Track Your Order" link/button from an email deep-links here with
   // ?ref=... — auto-run the lookup instead of making the customer click
   // "Track Order" again on a form that's already filled in for them.
   useEffect(() => {
-    if (initialRef) void runSearch(initialRef, "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!initialRef) return;
+    // Kicked off a microtask rather than called straight from the effect body,
+    // so the lookup's state updates land in a callback instead of synchronously
+    // during the effect — no cascading render on first paint.
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) void fetchOrder(initialRef, "");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialRef]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
