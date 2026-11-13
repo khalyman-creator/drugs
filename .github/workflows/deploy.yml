@@ -32,3 +32,12 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqeGpod3pmY2R3dXdoZ2lpbnJrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI5OTMyOTQsImV4cCI6MjA5ODU2OTI5NH0.yS9AZt8SCaQqI27IyAjLmteSnVpP5xEuDN3cd5CLIqE
           ADMIN_EMAIL: support@silkfreedom.com
           EMAIL_FROM: orders@silkfreedom.com
+
+      # A Worker can deploy "successfully" and still throw on every request --
+      # that is exactly how the Next 16 upgrade took the store down on
+      # 2026-11-13 while this workflow reported green. Ask the live site for a
+      # few pages and fail the run if it is not actually serving.
+      - name: Smoke check deployed Worker
+        run: node scripts/smoke-check.mjs "$NEXT_PUBLIC_SITE_URL"
+        env:
+          NEXT_PUBLIC_SITE_URL: https://drugs.silkfreedomcom.workers.dev
