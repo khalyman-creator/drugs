@@ -4,30 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Product, Review, Section, SiteSettings } from "@/lib/types";
-import {
-  CONTROL_STATUSES,
-  CONTROL_LABELS,
-  CONTROL_TONE,
-  PROCESSING_STATUSES,
-  PROCESSING_LABELS,
-  ORDER_STATUS_TONE,
-  toneClass,
-  type ControlStatus,
-} from "@/lib/shipping-status";
-
-type OrderRow = {
-  id: string;
-  order_number: string;
-  customer_name: string;
-  customer_email: string;
-  total: number;
-  totalFormatted: string;
-  status: string;
-  control_status: string;
-  processing_status: string;
-  shipping_status: string;
-  created_at: string;
-};
+import OrdersSection, { type OrderRow } from "./OrdersSection";
 
 type Tab = "site" | "sections" | "orders" | "reviews";
 
@@ -1211,109 +1188,13 @@ export function AdminDashboard({
       )}
 
       {tab === "orders" && (
-        <div className="overflow-hidden rounded-2xl border bg-white">
-          {orders.length === 0 ? (
-            <p className="p-8 text-center text-gray-400">No orders yet</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b bg-gray-50">
-                  <tr>
-                    <th className="p-4 font-medium">Order</th>
-                    <th className="p-4 font-medium">Customer</th>
-                    <th className="p-4 font-medium">Total</th>
-                    <th className="p-4 font-medium">Control Status</th>
-                    <th className="p-4 font-medium">Processing</th>
-                    <th className="p-4 font-medium"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {orders.map((o) => (
-                    <tr key={o.id} className="hover:bg-gray-50">
-                      <td className="p-4">
-                        <p className="font-mono text-xs">{o.order_number}</p>
-                        <span
-                          className={`mt-0.5 inline-block rounded-full border px-2 py-0.5 text-xs font-semibold capitalize ${toneClass(
-                            ORDER_STATUS_TONE[o.status] ?? "neutral"
-                          )}`}
-                        >
-                          {o.status}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <p>{o.customer_name}</p>
-                        <p className="text-xs text-gray-400">{o.customer_email}</p>
-                      </td>
-                      <td className="p-4">{o.totalFormatted}</td>
-                      <td className="p-4">
-                        <select
-                          value={o.control_status}
-                          disabled={savingOrderField === `${o.id}:control-status`}
-                          onChange={(e) =>
-                            handleOrderStatusChange(
-                              o.id,
-                              "control-status",
-                              "control_status",
-                              e.target.value
-                            )
-                          }
-                          className={`rounded-lg border px-2 py-1.5 text-xs font-semibold disabled:opacity-60 ${toneClass(
-                            CONTROL_TONE[o.control_status as ControlStatus] ?? "neutral"
-                          )}`}
-                        >
-                          {CONTROL_STATUSES.map((s) => (
-                            <option key={s} value={s}>
-                              {CONTROL_LABELS[s]}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="p-4">
-                        <select
-                          value={o.processing_status}
-                          disabled={savingOrderField === `${o.id}:processing-status`}
-                          onChange={(e) =>
-                            handleOrderStatusChange(
-                              o.id,
-                              "processing-status",
-                              "processing_status",
-                              e.target.value
-                            )
-                          }
-                          className="rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs font-semibold text-gray-700 disabled:opacity-60"
-                        >
-                          {PROCESSING_STATUSES.map((s) => (
-                            <option key={s} value={s}>
-                              {PROCESSING_LABELS[s]}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <Link
-                            href={`/admin/orders/${o.id}`}
-                            className="text-brand-600 hover:underline"
-                          >
-                            View
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteOrder(o.id, o.order_number)}
-                            disabled={deletingOrderId === o.id}
-                            className="text-red-600 hover:underline disabled:opacity-60"
-                          >
-                            {deletingOrderId === o.id ? "Deleting..." : "Delete"}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <OrdersSection
+          orders={orders}
+          savingOrderField={savingOrderField}
+          deletingOrderId={deletingOrderId}
+          onStatusChange={handleOrderStatusChange}
+          onDelete={handleDeleteOrder}
+        />
       )}
 
       {tab === "reviews" && (
