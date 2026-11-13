@@ -173,13 +173,12 @@ export default function OrdersSection({
   const safePage = Math.min(page, totalPages);
   const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
-  const hasTrendData = useMemo(() => {
-    const cutoff = Date.now() - ADMIN_TREND_DAYS * 24 * 60 * 60 * 1000;
-    return orders.some((order) => {
-      const placed = new Date(order.created_at).getTime();
-      return !Number.isNaN(placed) && placed >= cutoff;
-    });
-  }, [orders]);
+  // Gated on whether any orders exist at all, rather than on a clock read:
+  // calling Date.now() during render makes the result time-dependent, which
+  // react-hooks/purity correctly rejects. The panel states the window it covers,
+  // so a store whose orders are all older than that window sees an honest zero
+  // line instead of a silently hidden chart.
+  const hasOrders = orders.length > 0;
 
   const filtersActive =
     query.trim() !== "" ||
@@ -234,13 +233,13 @@ export default function OrdersSection({
         />
       </div>
 
-      {hasTrendData ? (
+      {hasOrders ? (
         <OrdersTrendChart orders={orders} />
       ) : (
         <section className={adminUi.chartPanel}>
           <h3 className={adminUi.chartTitle}>Last {ADMIN_TREND_DAYS} days</h3>
           <p className={adminUi.chartSubtitle}>
-            The trend chart appears once there are orders in the last {ADMIN_TREND_DAYS} days.
+            The trend chart appears once the store has its first order.
           </p>
         </section>
       )}
