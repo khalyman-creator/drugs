@@ -35,9 +35,18 @@ const TIMEOUT_MS = 20_000;
  * because its redirect proves the auth guard still runs — a Worker that 200s the
  * admin page would be worse than one that is down.
  */
+/**
+ * The storefront is age-gated, so the shop checks have to carry the
+ * confirmation cookie. Without it they would follow the redirect and quietly
+ * end up asserting against the gate instead of the shop.
+ */
+const AGE_COOKIE = "silk_age_verified=1";
+
 const checks = [
-  { label: "storefront", path: "/", expect: 200, mustContain: "SilkFreedom" },
-  { label: "catalog", path: "/products", expect: 200 },
+  // Unverified: proves the gate is actually in force, not just present.
+  { label: "age gate", path: "/", redirectTo: "/age-check" },
+  { label: "storefront", path: "/", expect: 200, mustContain: "SilkFreedom", cookie: AGE_COOKIE },
+  { label: "catalog", path: "/products", expect: 200, cookie: AGE_COOKIE },
   { label: "admin login", path: "/admin/login", expect: 200 },
   { label: "admin auth guard", path: "/admin", redirectTo: "/admin/login" },
   { label: "store config", path: "/api/public/store-config", expect: 200, json: true },
@@ -60,7 +69,10 @@ async function runCheck(check) {
       cache: "no-store",
       signal: controller.signal,
       // Generic client name on purpose: no project or personal details leave here.
-      headers: { "user-agent": "deploy-smoke-check" },
+      headers: {
+        "user-agent": "deploy-smoke-check",
+        ...(check.cookie ? { cookie: check.cookie } : {}),
+      },
     });
   } catch (error) {
     return { ok: false, detail: `request failed: ${error instanceof Error ? error.message : error}` };
