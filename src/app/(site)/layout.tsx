@@ -1,5 +1,8 @@
 import Script from "next/script";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { CartProvider } from "@/components/CartProvider";
+import { AGE_COOKIE, AGE_COOKIE_VALUE } from "@/lib/age-gate";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { AnnouncementBar } from "@/components/AnnouncementBar";
@@ -8,8 +11,21 @@ import { getAllSections } from "@/lib/db/supabase-sections";
 import { getSiteUrl } from "@/lib/env";
 
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
-  const [settings, sections] = await Promise.all([getSiteSettings(), getAllSections()]);
+  const [settings, sections, cookieStore] = await Promise.all([
+    getSiteSettings(),
+    getAllSections(),
+    cookies(),
+  ]);
   const siteUrl = getSiteUrl();
+
+  // Withhold the entire storefront until age is confirmed. This redirects
+  // rather than rendering the gate in place: redirect() interrupts rendering,
+  // so no product data reaches the response. Returning the gate here instead
+  // still let the page underneath execute and serialise its output into the
+  // RSC payload, which defeats the point.
+  if (cookieStore.get(AGE_COOKIE)?.value !== AGE_COOKIE_VALUE) {
+    redirect("/age-check");
+  }
 
   const organizationJsonLd = {
     "@context": "https://schema.org",
